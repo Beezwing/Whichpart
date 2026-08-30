@@ -1,0 +1,261 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { documentTypes } from "@autoparts/shared";
+import { api, ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth-context";
+import { Alert, Badge, Button, Card } from "../../components/ui";
+
+interface SupplierDocument {
+  id: string;
+  documentType: string;
+  uploadedAt: string;
+}
+interface SupplierMe {
+  id: string;
+  tradingName: string;
+  verificationStatus: string;
+  verification: { id: string; status: string; documents: SupplierDocument[] } | null;
+}
+interface NotificationRow {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+const DOCUMENT_LABELS: Record<string, string> = {
+  BUSINESS_REGISTRATION: "Proof of business registration",
+  REPRESENTATIVE_ID: "Representative ID",
+  OTHER: "Other document",
+};
+
+const STATUS_TONE: Record<string, "neutral" | "good" | "warn" | "bad"> = {
+  DRAFT: "neutral",
+  SUBMITTED: "warn",
+  UNDER_REVIEW: "warn",
+  ADDITIONAL_INFO_REQUIRED: "bad",
+  APPROVED: "good",
+  REJECTED: "bad",
+  SUSPENDED: "bad",
+  DEACTIVATED: "neutral",
+};
+
+const EDITABLE_STATUSES = ["DRAFT", "ADDITIONAL_INFO_REQUIRED"];
+
+export default function SupplierPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [supplier, setSupplier] = useState<SupplierMe | null>(null);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState<string>(documentTypes[0]);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [me, notes] = await Promise.all([
+        api.get<SupplierMe>("/suppliers/me"),
+        api.get<NotificationRow[]>("/notifications/me"),
+      ]);
+      setSupplier(me);
+      setNotifications(notes.slice(0, 3));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't load your supplier account.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    void load();
+  }, [authLoading, user, router, load]);
+
+  async function uploadDocument(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("documentType", documentType);
+      await api.postForm("/suppliers/me/documents", form);
+      setFile(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Upload failed.");
+      setBusy(false);
+      return;
+    }
+    await reloadAfterAction();
+  }
+
+  async function removeDocument(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.delete(`/suppliers/me/documents/${id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't remove that document.");
+      setBusy(false);
+      return;
+    }
+    await reloadAfterAction();
+  }
+
+  async function submitApplication() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post("/suppliers/me/submit");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't submit your application.");
+      setBusy(false);
+      return;
+    }
+    await reloadAfterAction();
+  }
+
+  /**
+   * The action above already succeeded — a failure here just means the
+   * page couldn't refresh itself, never that the action failed. Reflecting
+   * that mistakenly would tell the supplier something didn't happen when
+   * it did (Section 65: errors must describe what actually went wrong).
+   */
+  async function reloadAfterAction() {
+    try {
+      await load();
+    } catch {
+      setError("That worked, but the page couldn't refresh — reload to see the latest status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (authLoading || loading) {
+    return <main className="mx-auto max-w-2xl flex-1 px-6 py-16 text-sm text-[var(--muted)]">Loading…</main>;
+  }
+  if (!supplier) {
+    return (
+      <main className="mx-auto max-w-2xl flex-1 px-6 py-16">
+        <Alert variant="error">{error ?? "No supplier account found."}</Alert>
+      </main>
+    );
+  }
+
+  const status = supplier.verificationStatus;
+  const documents = supplier.verification?.documents ?? [];
+  const hasRegistration = documents.some((d) => d.documentType === documentTypes[0]);
+  const editable = EDITABLE_STATUSES.includes(status);
+
+  return (
+    <main className="mx-auto max-w-2xl flex-1 px-6 py-16">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{supplier.tradingName}</h1>
+        <Badge tone={STATUS_TONE[status] ?? "neutral"}>{status.replaceAll("_", " ")}</Badge>
+      </div>
+
+      {error && (
+        <div className="mb-4">
+          <Alert variant="error">{error}</Alert>
+        </div>
+      )}
+
+      {status === "APPROVED" && (
+        <Alert variant="success">
+          You&apos;re a verified supplier. The full supplier dashboard (inventory, orders, subscription) is coming
+          in the next build phase.
+        </Alert>
+      )}
+      {(status === "SUBMITTED" || status === "UNDER_REVIEW") && (
+        <Alert variant="info">Your application is with our team for review. We&apos;ll notify you here.</Alert>
+      )}
+      {status === "REJECTED" && (
+        <Alert variant="error">Your application was not approved. See the note below for details.</Alert>
+      )}
+      {status === "SUSPENDED" && <Alert variant="error">Your supplier account is currently suspended.</Alert>}
+      {status === "ADDITIONAL_INFO_REQUIRED" && (
+        <Alert variant="error">We need more information before we can continue reviewing your application.</Alert>
+      )}
+
+      {notifications.length > 0 && (
+        <div className="mt-6 flex flex-col gap-2">
+          {notifications.map((n) => (
+            <Card key={n.id} className="p-4">
+              <p className="text-sm font-medium">{n.title}</p>
+              <p className="text-sm text-[var(--muted)]">{n.body}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Card className="mt-6">
+        <h2 className="mb-4 text-lg font-medium">Verification documents</h2>
+        <ul className="mb-4 flex flex-col gap-2">
+          {documents.length === 0 && <li className="text-sm text-[var(--muted)]">No documents uploaded yet.</li>}
+          {documents.map((doc) => (
+            <li key={doc.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
+              <span>{DOCUMENT_LABELS[doc.documentType] ?? doc.documentType}</span>
+              {editable && (
+                <button
+                  type="button"
+                  className="text-xs text-red-600 hover:underline"
+                  disabled={busy}
+                  onClick={() => void removeDocument(doc.id)}
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {editable && (
+          <form onSubmit={uploadDocument} className="flex flex-col gap-3 border-t border-[var(--border)] pt-4">
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {documentTypes.map((type) => (
+                <option key={type} value={type}>
+                  {DOCUMENT_LABELS[type]}
+                </option>
+              ))}
+            </select>
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="text-sm"
+            />
+            <Button type="submit" variant="secondary" disabled={!file || busy}>
+              Upload document
+            </Button>
+          </form>
+        )}
+      </Card>
+
+      {editable && (
+        <div className="mt-6">
+          <Button onClick={() => void submitApplication()} disabled={!hasRegistration || busy}>
+            Submit application for review
+          </Button>
+          {!hasRegistration && (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Upload proof of business registration before submitting.
+            </p>
+          )}
+        </div>
+      )}
+    </main>
+  );
+}

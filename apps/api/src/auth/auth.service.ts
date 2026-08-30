@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -15,6 +16,7 @@ import {
 } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
+import type { JwtPayload } from './jwt.strategy';
 
 @Injectable()
 export class AuthService {
@@ -46,9 +48,10 @@ export class AuthService {
   }
 
   /**
-   * Registration only opens a supplier application (Section 3/4) — the
-   * resulting SupplierVerification starts at SUBMITTED. Nothing here
-   * grants selling access; only an admin approval action does that.
+   * Registration only opens a supplier APPLICATION — it starts at DRAFT
+   * and grants no selling access (Section 3/4, Rule 9). The owner uploads
+   * documents and calls submitApplication() when ready; only an admin
+   * approval action after that ever flips verificationStatus to APPROVED.
    */
   async registerSupplier(
     input: RegisterSupplierInput,
@@ -75,12 +78,9 @@ export class AuthService {
           email: input.email,
           website: input.website,
           authorizedRepresentativeName: input.authorizedRepresentativeName,
-          verificationStatus: SupplierVerificationStatus.SUBMITTED,
+          verificationStatus: SupplierVerificationStatus.DRAFT,
           verifications: {
-            create: {
-              status: SupplierVerificationStatus.SUBMITTED,
-              submittedAt: new Date(),
-            },
+            create: { status: SupplierVerificationStatus.DRAFT },
           },
         },
       });
@@ -99,7 +99,7 @@ export class AuthService {
 
     await this.auditLog.record({
       actorUserId: user.id,
-      action: 'SUPPLIER_APPLICATION_SUBMITTED',
+      action: 'SUPPLIER_APPLICATION_STARTED',
       resourceType: 'Supplier',
     });
 
@@ -121,6 +121,80 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
 
     return this.issueTokens(user.id, user.email, user.role);
+  }
+
+  async refresh(refreshToken: string | undefined) {
+    if (!refreshToken)
+      throw new UnauthorizedException('No refresh token provided.');
+
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Refresh token is invalid or expired.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+    if (!user || !user.isActive)
+      throw new UnauthorizedException('Account no longer active.');
+
+    return this.issueTokens(user.id, user.email, user.role);
+  }
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: {
+        customer: true,
+        supplierUsers: { include: { supplier: true } },
+      },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      customer: user.customer
+        ? { name: user.customer.name, phone: user.customer.phone }
+        : null,
+      supplier: user.supplierUsers[0]?.supplier
+        ? {
+            id: user.supplierUsers[0].supplier.id,
+            tradingName: user.supplierUsers[0].supplier.tradingName,
+            verificationStatus:
+              user.supplierUsers[0].supplier.verificationStatus,
+          }
+        : null,
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    const matches = await argon2.verify(user.passwordHash, currentPassword);
+    if (!matches)
+      throw new BadRequestException('Current password is incorrect.');
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: 'PASSWORD_CHANGED',
+      resourceType: 'User',
+      resourceId: userId,
+    });
   }
 
   private async issueTokens(sub: string, email: string, role: string) {

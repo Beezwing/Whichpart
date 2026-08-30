@@ -36,3 +36,9 @@ export const supplierSignupSchema = registerSupplierSchema.extend({
   password: z.string().min(10).max(200),
 });
 export type SupplierSignupInput = z.infer<typeof supplierSignupSchema>;
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(10).max(200),
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

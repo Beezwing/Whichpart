@@ -1,13 +1,20 @@
-import { Body, Controller, Post, Res, UsePipes } from '@nestjs/common';
-import type { Response } from 'express';
+import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import {
+  changePasswordSchema,
   loginSchema,
   registerCustomerSchema,
   supplierSignupSchema,
+  type ChangePasswordInput,
   type LoginInput,
   type RegisterCustomerInput,
   type SupplierSignupInput,
 } from '@autoparts/shared';
+import { Auth } from '../common/auth.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../common/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
 
@@ -18,9 +25,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register/customer')
-  @UsePipes(new ZodValidationPipe(registerCustomerSchema))
   async registerCustomer(
-    @Body() body: RegisterCustomerInput,
+    @Body(new ZodValidationPipe(registerCustomerSchema))
+    body: RegisterCustomerInput,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.registerCustomer(body);
@@ -29,9 +36,9 @@ export class AuthController {
   }
 
   @Post('register/supplier')
-  @UsePipes(new ZodValidationPipe(supplierSignupSchema))
   async registerSupplier(
-    @Body() body: SupplierSignupInput,
+    @Body(new ZodValidationPipe(supplierSignupSchema))
+    body: SupplierSignupInput,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { password, ...businessFields } = body;
@@ -45,14 +52,46 @@ export class AuthController {
   }
 
   @Post('login')
-  @UsePipes(new ZodValidationPipe(loginSchema))
   async login(
-    @Body() body: LoginInput,
+    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(body);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return { user: result.user };
+  }
+
+  @Post('refresh')
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.refresh(
+      req.cookies?.refresh_token as string | undefined,
+    );
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+    return { user: result.user };
+  }
+
+  @Get('me')
+  @Auth()
+  me(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getMe(user.id);
+  }
+
+  @Post('password')
+  @Auth()
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(changePasswordSchema))
+    body: ChangePasswordInput,
+  ) {
+    await this.authService.changePassword(
+      user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+    return { success: true };
   }
 
   @Post('logout')

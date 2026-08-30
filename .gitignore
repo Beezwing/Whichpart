@@ -43,6 +43,9 @@ Thumbs.db
 # prisma
 apps/api/prisma/dev.db
 
+# local file storage (dev only — replaced by Cloudflare R2 in Phase 4)
+apps/api/uploads/
+
 # misc
 credentials.json
 *.pem
