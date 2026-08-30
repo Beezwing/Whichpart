@@ -1,0 +1,25 @@
+import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
+
+  app.use(helmet());
+  app.use(cookieParser());
+  app.enableCors({
+    origin: config.get<string>('WEB_APP_ORIGIN', 'http://localhost:3000'),
+    credentials: true,
+  });
+  app.setGlobalPrefix('api');
+
+  const port = config.get<number>('PORT', 4000);
+  await app.listen(port);
+}
+bootstrap().catch((error: unknown) => {
+  console.error('Fatal error during startup:', error);
+  process.exit(1);
+});

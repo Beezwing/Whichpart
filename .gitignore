@@ -1,0 +1,48 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# testing
+coverage/
+
+# next.js
+.next/
+out/
+
+# nest / node build output
+dist/
+build/
+
+# expo
+.expo/
+apps/mobile/web-build/
+*.orig.*
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# turbo
+.turbo/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# prisma
+apps/api/prisma/dev.db
+
+# misc
+credentials.json
+*.pem

@@ -1,0 +1,633 @@
+// AutoParts Marketplace — core database schema (Master Spec Section 46/47).
+// Enum values here are kept in sync by hand with packages/shared/src/enums.ts
+// so the API, web, and mobile apps all agree on the same vocabulary.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum UserRole {
+  CUSTOMER
+  SUPPLIER_OWNER
+  SUPPLIER_STAFF
+  SUPPLIER_LOCATION_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SupplierVerificationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFO_REQUIRED
+  APPROVED
+  REJECTED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+  RECONDITIONED
+  OEM
+  AFTERMARKET
+}
+
+enum DeliveryProviderType {
+  PICKUP
+  SUPPLIER_DELIVERY
+  DOORWAY
+  EIGHT_SEVEN_SIX_GET
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PAID
+  PROCESSING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+enum PaymentProviderType {
+  LUNIPAY
+  FYGARO
+}
+
+enum PromotionTier {
+  SUPER_SUPPLIER
+  VIP_SUPPLIER
+}
+
+// ---------- Identity ----------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer      Customer?
+  supplierUsers SupplierUser[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  messages      Message[]
+
+  @@index([role])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  savedVehicles SavedVehicle[]
+  wishlistItems Wishlist[]
+  orders        Order[]
+  reviews       Review[]
+  conversations Conversation[]
+}
+
+// ---------- Supplier ----------
+
+model Supplier {
+  id                        String                     @id @default(uuid())
+  legalBusinessName         String
+  tradingName               String
+  businessType              String
+  businessRegistrationNumber String?
+  physicalAddress           String
+  phone                     String
+  email                     String
+  website                   String?
+  authorizedRepresentativeName String
+  verificationStatus        SupplierVerificationStatus @default(DRAFT)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+
+  users          SupplierUser[]
+  verifications  SupplierVerification[]
+  locations      SupplierLocation[]
+  subscriptions  Subscription[]
+  products       Product[]
+  orders         Order[]
+  reviews        Review[]
+  conversations  Conversation[]
+  promotions     Promotion[]
+  paymentAccount SupplierPaymentAccount?
+
+  @@index([verificationStatus])
+}
+
+model SupplierUser {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  locationId String?
+  location   SupplierLocation? @relation(fields: [locationId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, supplierId])
+  @@index([supplierId])
+}
+
+model SupplierVerification {
+  id             String                     @id @default(uuid())
+  supplierId     String
+  supplier       Supplier                   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  status         SupplierVerificationStatus
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  reviewedByUserId String?
+  internalNotes  String?
+  createdAt      DateTime                   @default(now())
+
+  documents SupplierDocument[]
+
+  @@index([supplierId])
+}
+
+model SupplierDocument {
+  id             String                @id @default(uuid())
+  verificationId String
+  verification   SupplierVerification  @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  documentType   String
+  fileUrl        String
+  uploadedAt     DateTime              @default(now())
+}
+
+model SupplierLocation {
+  id                String   @id @default(uuid())
+  supplierId        String
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  name              String
+  address           String
+  latitude          Float?
+  longitude         Float?
+  phone             String?
+  openingHours      Json?
+  pickupAvailable   Boolean  @default(false)
+  deliveryAvailable Boolean  @default(false)
+  deliveryZones     Json?
+  createdAt         DateTime @default(now())
+
+  inventory     InventoryLocation[]
+  supplierUsers SupplierUser[]
+  orders        Order[]
+
+  @@index([supplierId])
+}
+
+// Each supplier connects their OWN LuniPay/Fygaro account — the marketplace
+// never holds supplier sale funds (Rule 1). We store only the identifiers
+// needed to create a payment session on the supplier's behalf; secrets are
+// encrypted at rest and never sent to any frontend.
+model SupplierPaymentAccount {
+  id                String              @id @default(uuid())
+  supplierId        String              @unique
+  supplier          Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  provider          PaymentProviderType
+  status            String              @default("NOT_CONNECTED") // NOT_CONNECTED | PENDING | CONNECTED | ERROR | SUSPENDED
+  encryptedApiKey   String?
+  publicIdentifier  String?
+  connectedAt       DateTime?
+  updatedAt         DateTime            @updatedAt
+}
+
+// ---------- Subscriptions (supplier -> marketplace, Section 58/60) ----------
+
+model SubscriptionPlan {
+  id            String        @id @default(uuid())
+  name          String
+  billingPeriod BillingPeriod
+  priceUsd      Decimal       @db.Decimal(10, 2)
+  trialDays     Int           @default(30)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  supplierId       String
+  supplier         Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  planId           String
+  plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  gracePeriodEndsAt DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime           @default(now())
+
+  @@index([supplierId])
+  @@index([status])
+}
+
+// ---------- Catalog ----------
+
+model Category {
+  id       String     @id @default(uuid())
+  name     String
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToParent")
+
+  products Product[]
+}
+
+model Brand {
+  id   String @id @default(uuid())
+  name String @unique
+
+  products Product[]
+}
+
+model Make {
+  id   String  @id @default(uuid())
+  name String  @unique
+
+  models Model[]
+}
+
+model Model {
+  id     String @id @default(uuid())
+  makeId String
+  make   Make   @relation(fields: [makeId], references: [id], onDelete: Cascade)
+  name   String
+
+  engines        Engine[]
+  compatibilities VehicleCompatibility[]
+
+  @@unique([makeId, name])
+}
+
+model Engine {
+  id      String  @id @default(uuid())
+  modelId String?
+  model   Model?  @relation(fields: [modelId], references: [id])
+  code    String
+  name    String?
+
+  compatibilities VehicleCompatibility[]
+}
+
+model VehicleCompatibility {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modelId   String?
+  model     Model?   @relation(fields: [modelId], references: [id])
+  engineId  String?
+  engine    Engine?  @relation(fields: [engineId], references: [id])
+  yearFrom  Int?
+  yearTo    Int?
+  notes     String?
+
+  @@index([productId])
+}
+
+// Supplier-submitted sku/price/quantity are authoritative (Rules 3-5).
+// AI categorization may only ever populate suggestedCategoryId /
+// suggestedKeywords / cleanedDescription — never price, quantity, or sku
+// (Rules 6-8). Those AI columns exist here but are always written by the
+// categorization service, never by the supplier-facing product endpoints,
+// and vice versa.
+model Product {
+  id                     String            @id @default(uuid())
+  supplierId             String
+  supplier               Supplier          @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  sku                    String
+  name                   String
+  description            String?
+  categoryId             String?
+  category               Category?         @relation(fields: [categoryId], references: [id])
+  brandId                String?
+  brand                  Brand?            @relation(fields: [brandId], references: [id])
+  condition              ProductCondition
+  price                  Decimal           @db.Decimal(12, 2)
+  currency               String            @default("JMD")
+  oemPartNumber          String?
+  manufacturerPartNumber String?
+  isActive               Boolean           @default(true)
+  // AI-suggested fields only — never authoritative, always supplier-approved
+  aiSuggestedCategoryId  String?
+  aiSuggestedKeywords    String[]
+  aiCleanedDescription   String?
+  aiSuggestionApproved   Boolean           @default(false)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  images          ProductImage[]
+  inventory       InventoryLocation[]
+  compatibilities VehicleCompatibility[]
+  orderItems      OrderItem[]
+  wishlistedBy    Wishlist[]
+
+  @@unique([supplierId, sku])
+  @@index([oemPartNumber])
+  @@index([manufacturerPartNumber])
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+}
+
+model InventoryLocation {
+  id                  String           @id @default(uuid())
+  productId           String
+  product             Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId          String
+  location            SupplierLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity            Int              @default(0)
+  reservedQuantity    Int              @default(0)
+  lowStockThreshold   Int?
+  criticalStockThreshold Int?
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([productId, locationId])
+}
+
+// ---------- Customer ----------
+
+model SavedVehicle {
+  id             String   @id @default(uuid())
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  nickname       String?
+  make           String
+  model          String
+  year           Int
+  vin            String?
+  chassisNumber  String?
+  engineNumber   String?
+  engineCode     String?
+  transmission   String?
+  mileage        Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+}
+
+// ---------- Orders & payments ----------
+
+model Order {
+  id               String               @id @default(uuid())
+  orderNumber      String               @unique
+  customerId       String
+  customer         Customer             @relation(fields: [customerId], references: [id])
+  supplierId       String
+  supplier         Supplier             @relation(fields: [supplierId], references: [id])
+  locationId       String?
+  location         SupplierLocation?    @relation(fields: [locationId], references: [id])
+  status           OrderStatus          @default(AWAITING_PAYMENT)
+  paymentStatus    PaymentStatus        @default(PENDING)
+  subtotal         Decimal              @db.Decimal(12, 2)
+  deliveryFee      Decimal              @db.Decimal(12, 2) @default(0)
+  total            Decimal              @db.Decimal(12, 2)
+  currency         String               @default("JMD")
+  deliveryProvider DeliveryProviderType
+  deliveryAddress  String?
+  // GPS coordinates are private order data (Rule 17) — never exposed via
+  // any public product/supplier endpoint, only to the customer, the
+  // assigned supplier, and whoever fulfills the delivery.
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  recipientName     String?
+  recipientPhone    String?
+  customerNotes    String?
+  supplierNotes    String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  items     OrderItem[]
+  payments  Payment[]
+  delivery  Delivery?
+  review    Review?
+
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+// Preserves the price the customer agreed to at purchase time (Rule 33) —
+// a later supplier price change never touches an existing order.
+model OrderItem {
+  id             String  @id @default(uuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product @relation(fields: [productId], references: [id])
+  skuSnapshot    String
+  nameSnapshot   String
+  priceAtPurchase Decimal @db.Decimal(12, 2)
+  quantity       Int
+
+  @@index([orderId])
+}
+
+model Payment {
+  id                 String              @id @default(uuid())
+  orderId            String
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider           PaymentProviderType
+  providerReference  String?
+  amount             Decimal             @db.Decimal(12, 2)
+  currency           String              @default("JMD")
+  status             PaymentStatus       @default(PENDING)
+  idempotencyKey     String              @unique
+  rawWebhookPayload  Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([orderId])
+}
+
+model Delivery {
+  id                String               @id @default(uuid())
+  orderId           String               @unique
+  order             Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider          DeliveryProviderType
+  status            String               @default("PENDING")
+  trackingReference String?
+  estimatedTime     String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+// ---------- Reviews & messaging ----------
+
+// Reviews only become writable 48 hours after confirmed delivery/completion
+// (Rules 18-19) — enforced in the API layer against Order.status/updatedAt,
+// not just in the UI.
+model Review {
+  id               String   @id @default(uuid())
+  orderId          String   @unique
+  order            Order    @relation(fields: [orderId], references: [id])
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+  supplierId       String
+  supplier         Supplier @relation(fields: [supplierId], references: [id])
+  productRating    Int
+  supplierRating   Int
+  deliveryRating   Int?
+  comment          String?
+  supplierResponse String?
+  isModerated      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model Conversation {
+  id         String    @id @default(uuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [id])
+  productId  String?
+  orderId    String?
+  createdAt  DateTime  @default(now())
+
+  messages Message[]
+
+  @@index([customerId])
+  @@index([supplierId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUserId   String
+  sender         User         @relation(fields: [senderUserId], references: [id])
+  body           String
+  attachmentUrl  String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+// ---------- Notifications, promotions, ads, audit ----------
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Promotion {
+  id         String        @id @default(uuid())
+  supplierId String
+  supplier   Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  tier       PromotionTier
+  startsAt   DateTime
+  endsAt     DateTime
+  priceUsd   Decimal       @db.Decimal(10, 2)
+  isActive   Boolean       @default(true)
+
+  @@index([supplierId])
+}
+
+model Ad {
+  id              String   @id @default(uuid())
+  title           String
+  imageUrl        String
+  destinationUrl  String
+  targetCategoryId String?
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0)
+}
+
+// Immutable audit trail (Section 55) — application code must only ever
+// INSERT here, never UPDATE or DELETE a row.
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorUserId  String?
+  actor        User?    @relation(fields: [actorUserId], references: [id])
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([resourceType, resourceId])
+}
