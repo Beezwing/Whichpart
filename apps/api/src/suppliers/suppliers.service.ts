@@ -8,9 +8,14 @@ import {
   SupplierVerificationStatus,
   UserRole,
   documentTypes,
+  type ChoosePlanInput,
+  type PaymentAccountInput,
+  type SupplierLocationInput,
+  type UpdateSupplierProfileInput,
 } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
+import { CryptoService } from '../common/crypto.service';
 import { StorageService } from '../storage/storage.service';
 import type { AuthenticatedUser } from '../common/current-user.decorator';
 
@@ -25,6 +30,7 @@ export class SuppliersService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly storage: StorageService,
+    private readonly crypto: CryptoService,
   ) {}
 
   private async requireOwnSupplier(userId: string) {
@@ -45,6 +51,16 @@ export class SuppliersService {
     if (!supplierUser)
       throw new NotFoundException('No supplier account found for this user.');
     return supplierUser.supplier;
+  }
+
+  private async requireSupplierId(userId: string): Promise<string> {
+    const supplierUser = await this.prisma.supplierUser.findFirst({
+      where: { userId },
+      select: { supplierId: true },
+    });
+    if (!supplierUser)
+      throw new NotFoundException('No supplier account found for this user.');
+    return supplierUser.supplierId;
   }
 
   async getMySupplier(userId: string) {
@@ -152,6 +168,201 @@ export class SuppliersService {
         body: `${supplier.tradingName} submitted their application for review.`,
       })),
     });
+  }
+
+  // ---------- Business profile ----------
+
+  async updateProfile(userId: string, input: UpdateSupplierProfileInput) {
+    const supplierId = await this.requireSupplierId(userId);
+    const supplier = await this.prisma.supplier.update({
+      where: { id: supplierId },
+      data: {
+        tradingName: input.tradingName,
+        phone: input.phone,
+        website: input.website || null,
+        physicalAddress: input.physicalAddress,
+      },
+    });
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: 'SUPPLIER_PROFILE_UPDATED',
+      resourceType: 'Supplier',
+      resourceId: supplierId,
+    });
+    return supplier;
+  }
+
+  // ---------- Locations (Section 41) ----------
+
+  async listLocations(userId: string) {
+    const supplierId = await this.requireSupplierId(userId);
+    return this.prisma.supplierLocation.findMany({
+      where: { supplierId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createLocation(userId: string, input: SupplierLocationInput) {
+    const supplierId = await this.requireSupplierId(userId);
+    return this.prisma.supplierLocation.create({
+      data: {
+        supplierId,
+        name: input.name,
+        address: input.address,
+        phone: input.phone,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        openingHours: input.openingHours,
+        pickupAvailable: input.pickupAvailable,
+        deliveryAvailable: input.deliveryAvailable,
+        deliveryZones: input.deliveryZones,
+      },
+    });
+  }
+
+  private async requireOwnLocation(userId: string, locationId: string) {
+    const supplierId = await this.requireSupplierId(userId);
+    const location = await this.prisma.supplierLocation.findFirst({
+      where: { id: locationId, supplierId },
+    });
+    if (!location) throw new NotFoundException('Location not found.');
+    return location;
+  }
+
+  async updateLocation(
+    userId: string,
+    locationId: string,
+    input: SupplierLocationInput,
+  ) {
+    await this.requireOwnLocation(userId, locationId);
+    return this.prisma.supplierLocation.update({
+      where: { id: locationId },
+      data: {
+        name: input.name,
+        address: input.address,
+        phone: input.phone,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        openingHours: input.openingHours,
+        pickupAvailable: input.pickupAvailable,
+        deliveryAvailable: input.deliveryAvailable,
+        deliveryZones: input.deliveryZones,
+      },
+    });
+  }
+
+  async deleteLocation(userId: string, locationId: string) {
+    await this.requireOwnLocation(userId, locationId);
+    const inventoryCount = await this.prisma.inventoryLocation.count({
+      where: { locationId },
+    });
+    if (inventoryCount > 0) {
+      throw new BadRequestException(
+        'This location still has inventory assigned to it — move or remove those products first.',
+      );
+    }
+    await this.prisma.supplierLocation.delete({ where: { id: locationId } });
+  }
+
+  // ---------- Subscription (Section 58) ----------
+
+  async getSubscription(userId: string) {
+    const supplierId = await this.requireSupplierId(userId);
+    return this.prisma.subscription.findFirst({
+      where: { supplierId },
+      orderBy: { createdAt: 'desc' },
+      include: { plan: true },
+    });
+  }
+
+  async choosePlan(userId: string, input: ChoosePlanInput) {
+    const supplierId = await this.requireSupplierId(userId);
+    const plan = await this.prisma.subscriptionPlan.findFirst({
+      where: { id: input.planId, isActive: true },
+    });
+    if (!plan) throw new BadRequestException('That plan is not available.');
+
+    const existing = await this.prisma.subscription.findFirst({
+      where: { supplierId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!existing) {
+      throw new BadRequestException(
+        'Your subscription starts automatically once your application is approved.',
+      );
+    }
+
+    const updated = await this.prisma.subscription.update({
+      where: { id: existing.id },
+      data: { planId: plan.id },
+      include: { plan: true },
+    });
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: 'SUPPLIER_PLAN_CHANGED',
+      resourceType: 'Subscription',
+      resourceId: existing.id,
+      metadata: { planName: plan.name },
+    });
+    return updated;
+  }
+
+  // ---------- Payment connection (Section 27) ----------
+  // The marketplace never holds supplier sale funds (Rule 1): the supplier
+  // connects their OWN LuniPay/Fygaro account. We can't verify these
+  // credentials against either provider's API yet — that integration is
+  // explicitly pending confirmation from LuniPay/Fygaro (see the Phase 0
+  // architecture report). Status here is self-attested until Phase 7.
+
+  async getPaymentAccount(userId: string) {
+    const supplierId = await this.requireSupplierId(userId);
+    const account = await this.prisma.supplierPaymentAccount.findUnique({
+      where: { supplierId },
+    });
+    if (!account) return null;
+    return {
+      provider: account.provider,
+      status: account.status,
+      publicIdentifier: account.publicIdentifier,
+      maskedApiKey: account.encryptedApiKey
+        ? CryptoService.mask(this.crypto.decrypt(account.encryptedApiKey))
+        : null,
+      connectedAt: account.connectedAt,
+    };
+  }
+
+  async updatePaymentAccount(userId: string, input: PaymentAccountInput) {
+    const supplierId = await this.requireSupplierId(userId);
+    const encryptedApiKey = this.crypto.encrypt(input.apiKey);
+
+    await this.prisma.supplierPaymentAccount.upsert({
+      where: { supplierId },
+      create: {
+        supplierId,
+        provider: input.provider,
+        publicIdentifier: input.publicIdentifier,
+        encryptedApiKey,
+        status: 'CONNECTED',
+        connectedAt: new Date(),
+      },
+      update: {
+        provider: input.provider,
+        publicIdentifier: input.publicIdentifier,
+        encryptedApiKey,
+        status: 'CONNECTED',
+        connectedAt: new Date(),
+      },
+    });
+
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: 'SUPPLIER_PAYMENT_CONNECTED',
+      resourceType: 'Supplier',
+      resourceId: supplierId,
+      metadata: { provider: input.provider },
+    });
+
+    return this.getPaymentAccount(userId);
   }
 
   /** Any authenticated request for a document's bytes goes through here. */

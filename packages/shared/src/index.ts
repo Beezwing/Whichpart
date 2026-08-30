@@ -4,3 +4,4 @@ export * from "./schemas/auth";
 export * from "./schemas/vehicle";
 export * from "./schemas/product";
 export * from "./schemas/supplier-admin";
+export * from "./schemas/supplier-profile";

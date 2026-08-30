@@ -27,6 +27,12 @@ export const SupplierVerificationStatus = {
 export type SupplierVerificationStatus =
   (typeof SupplierVerificationStatus)[keyof typeof SupplierVerificationStatus];
 
+export const BillingPeriod = {
+  MONTHLY: "MONTHLY",
+  ANNUAL: "ANNUAL",
+} as const;
+export type BillingPeriod = (typeof BillingPeriod)[keyof typeof BillingPeriod];
+
 export const SubscriptionStatus = {
   TRIAL: "TRIAL",
   ACTIVE: "ACTIVE",

@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SupplierVerificationStatus } from '@autoparts/shared';
+import {
+  BillingPeriod,
+  SupplierVerificationStatus,
+  SubscriptionStatus,
+} from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 
@@ -154,7 +158,38 @@ export class AdminSuppliersService {
       })),
     });
 
+    if (action === 'approve') await this.ensureTrialSubscription(supplierId);
+
     return { id: supplierId, verificationStatus: newStatus };
+  }
+
+  /**
+   * First-ever approval starts the 30-day trial (Section 58). A supplier
+   * suspended and later reactivated already has a subscription record, so
+   * this only ever runs once per supplier.
+   */
+  private async ensureTrialSubscription(supplierId: string) {
+    const existing = await this.prisma.subscription.findFirst({
+      where: { supplierId },
+    });
+    if (existing) return;
+
+    const plan = await this.prisma.subscriptionPlan.findFirst({
+      where: { billingPeriod: BillingPeriod.MONTHLY, isActive: true },
+    });
+    if (!plan) return; // No plans configured yet — admin needs to set pricing first.
+
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + plan.trialDays);
+
+    await this.prisma.subscription.create({
+      data: {
+        supplierId,
+        planId: plan.id,
+        status: SubscriptionStatus.TRIAL,
+        trialEndsAt,
+      },
+    });
   }
 
   private notificationTitle(action: Action): string {

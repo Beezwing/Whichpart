@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { documentTypes } from "@autoparts/shared";
+import Link from "next/link";
+import { documentTypes, updateSupplierProfileSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
-import { Alert, Badge, Button, Card } from "../../components/ui";
+import { Alert, Badge, Button, Card, Field, Input } from "../../components/ui";
+import { SupplierTabs } from "../../components/supplier-tabs";
 
 interface SupplierDocument {
   id: string;
@@ -15,6 +17,10 @@ interface SupplierDocument {
 interface SupplierMe {
   id: string;
   tradingName: string;
+  legalBusinessName: string;
+  phone: string;
+  website: string | null;
+  physicalAddress: string;
   verificationStatus: string;
   verification: { id: string; status: string; documents: SupplierDocument[] } | null;
 }
@@ -152,6 +158,18 @@ export default function SupplierPage() {
   }
 
   const status = supplier.verificationStatus;
+
+  if (status === "APPROVED" || status === "SUSPENDED") {
+    return (
+      <ApprovedOverview
+        supplier={supplier}
+        notifications={notifications}
+        error={error}
+        onProfileSaved={load}
+      />
+    );
+  }
+
   const documents = supplier.verification?.documents ?? [];
   const hasRegistration = documents.some((d) => d.documentType === documentTypes[0]);
   const editable = EDITABLE_STATUSES.includes(status);
@@ -169,19 +187,12 @@ export default function SupplierPage() {
         </div>
       )}
 
-      {status === "APPROVED" && (
-        <Alert variant="success">
-          You&apos;re a verified supplier. The full supplier dashboard (inventory, orders, subscription) is coming
-          in the next build phase.
-        </Alert>
-      )}
       {(status === "SUBMITTED" || status === "UNDER_REVIEW") && (
         <Alert variant="info">Your application is with our team for review. We&apos;ll notify you here.</Alert>
       )}
       {status === "REJECTED" && (
         <Alert variant="error">Your application was not approved. See the note below for details.</Alert>
       )}
-      {status === "SUSPENDED" && <Alert variant="error">Your supplier account is currently suspended.</Alert>}
       {status === "ADDITIONAL_INFO_REQUIRED" && (
         <Alert variant="error">We need more information before we can continue reviewing your application.</Alert>
       )}
@@ -257,5 +268,134 @@ export default function SupplierPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function ApprovedOverview({
+  supplier,
+  notifications,
+  error,
+  onProfileSaved,
+}: {
+  supplier: SupplierMe;
+  notifications: NotificationRow[];
+  error: string | null;
+  onProfileSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    tradingName: supplier.tradingName,
+    phone: supplier.phone,
+    website: supplier.website ?? "",
+    physicalAddress: supplier.physicalAddress,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus(null);
+    setErrors({});
+    const parsed = updateSupplierProfileSchema.safeParse(form);
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) fieldErrors[issue.path[0] as string] = issue.message;
+      setErrors(fieldErrors);
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.patch("/suppliers/me", parsed.data);
+      setStatus({ type: "success", message: "Saved." });
+      await onProfileSaved();
+    } catch (err) {
+      setStatus({ type: "error", message: err instanceof ApiError ? err.message : "Couldn't save your changes." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-2xl flex-1 px-6 py-12">
+      <div className="mb-2 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{supplier.tradingName}</h1>
+        <Badge tone={STATUS_TONE[supplier.verificationStatus] ?? "neutral"}>
+          {supplier.verificationStatus.replaceAll("_", " ")}
+        </Badge>
+      </div>
+      <SupplierTabs />
+
+      {error && (
+        <div className="mb-4">
+          <Alert variant="error">{error}</Alert>
+        </div>
+      )}
+      {supplier.verificationStatus === "SUSPENDED" && (
+        <div className="mb-4">
+          <Alert variant="error">
+            Your supplier account is suspended — your listings are hidden from customers until this is resolved.
+          </Alert>
+        </div>
+      )}
+
+      {notifications.length > 0 && (
+        <div className="mb-6 flex flex-col gap-2">
+          {notifications.map((n) => (
+            <Card key={n.id} className="p-4">
+              <p className="text-sm font-medium">{n.title}</p>
+              <p className="text-sm text-[var(--muted)]">{n.body}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <SummaryLink href="/supplier/locations" label="Locations" />
+        <SummaryLink href="/supplier/subscription" label="Subscription" />
+        <SummaryLink href="/supplier/payment" label="Payment" />
+      </div>
+
+      <Card>
+        <h2 className="mb-4 text-lg font-medium">Business information</h2>
+        <p className="mb-4 text-xs text-[var(--muted)]">
+          Legal business name and registration number are locked after verification — contact support to change
+          those.
+        </p>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {status && <Alert variant={status.type}>{status.message}</Alert>}
+          <Field label="Trading name" error={errors.tradingName}>
+            <Input value={form.tradingName} onChange={(e) => setForm({ ...form, tradingName: e.target.value })} />
+          </Field>
+          <Field label="Phone" error={errors.phone}>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Field label="Website" error={errors.website}>
+            <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
+          </Field>
+          <Field label="Physical address" error={errors.physicalAddress}>
+            <Input
+              value={form.physicalAddress}
+              onChange={(e) => setForm({ ...form, physicalAddress: e.target.value })}
+            />
+          </Field>
+          <div>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </main>
+  );
+}
+
+function SummaryLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-sm font-medium hover:border-[var(--accent)]"
+    >
+      {label} →
+    </Link>
   );
 }

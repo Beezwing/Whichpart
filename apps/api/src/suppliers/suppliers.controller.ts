@@ -5,19 +5,32 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
+  Put,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { documentTypes } from '@autoparts/shared';
+import {
+  choosePlanSchema,
+  documentTypes,
+  paymentAccountSchema,
+  supplierLocationSchema,
+  updateSupplierProfileSchema,
+  type ChoosePlanInput,
+  type PaymentAccountInput,
+  type SupplierLocationInput,
+  type UpdateSupplierProfileInput,
+} from '@autoparts/shared';
 import { Auth } from '../common/auth.decorator';
 import {
   CurrentUser,
   type AuthenticatedUser,
 } from '../common/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { SuppliersService } from './suppliers.service';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -31,6 +44,16 @@ export class SuppliersController {
   @Auth()
   getMySupplier(@CurrentUser() user: AuthenticatedUser) {
     return this.suppliersService.getMySupplier(user.id);
+  }
+
+  @Patch('me')
+  @Auth()
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updateSupplierProfileSchema))
+    body: UpdateSupplierProfileInput,
+  ) {
+    return this.suppliersService.updateProfile(user.id, body);
   }
 
   @Post('me/documents')
@@ -87,5 +110,78 @@ export class SuppliersController {
     const { buffer } = await this.suppliersService.getDocumentFile(id, user);
     res.setHeader('Content-Type', 'application/octet-stream');
     res.send(buffer);
+  }
+
+  // ---------- Locations ----------
+
+  @Get('me/locations')
+  @Auth()
+  listLocations(@CurrentUser() user: AuthenticatedUser) {
+    return this.suppliersService.listLocations(user.id);
+  }
+
+  @Post('me/locations')
+  @Auth()
+  createLocation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(supplierLocationSchema))
+    body: SupplierLocationInput,
+  ) {
+    return this.suppliersService.createLocation(user.id, body);
+  }
+
+  @Patch('me/locations/:id')
+  @Auth()
+  updateLocation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(supplierLocationSchema))
+    body: SupplierLocationInput,
+  ) {
+    return this.suppliersService.updateLocation(user.id, id, body);
+  }
+
+  @Delete('me/locations/:id')
+  @Auth()
+  deleteLocation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.suppliersService.deleteLocation(user.id, id);
+  }
+
+  // ---------- Subscription ----------
+
+  @Get('me/subscription')
+  @Auth()
+  getSubscription(@CurrentUser() user: AuthenticatedUser) {
+    return this.suppliersService.getSubscription(user.id);
+  }
+
+  @Post('me/subscription/plan')
+  @Auth()
+  choosePlan(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(choosePlanSchema)) body: ChoosePlanInput,
+  ) {
+    return this.suppliersService.choosePlan(user.id, body);
+  }
+
+  // ---------- Payment connection ----------
+
+  @Get('me/payment-account')
+  @Auth()
+  getPaymentAccount(@CurrentUser() user: AuthenticatedUser) {
+    return this.suppliersService.getPaymentAccount(user.id);
+  }
+
+  @Put('me/payment-account')
+  @Auth()
+  updatePaymentAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(paymentAccountSchema))
+    body: PaymentAccountInput,
+  ) {
+    return this.suppliersService.updatePaymentAccount(user.id, body);
   }
 }

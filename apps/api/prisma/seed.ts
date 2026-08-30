@@ -1,8 +1,11 @@
 /**
- * Creates the first Super Admin account. Admin accounts are never
- * self-registered (Rule 9 / Section 44) — this is the only way one gets
- * created. Safe to run more than once: it does nothing if the account
- * already exists.
+ * One-time setup, safe to re-run:
+ * 1. Creates the first Super Admin account (Rule 9 — admins are never
+ *    self-registered; this is the only way one gets created).
+ * 2. Seeds the two default subscription plans from Section 2 of the
+ *    master spec (Monthly $299 / Annual $2,990, 30-day trial). Pricing
+ *    stays admin-editable from here — this just gives the admin panel
+ *    something to edit instead of starting with an empty table.
  *
  * Run with: npm run db:seed --workspace=api
  * Requires ADMIN_EMAIL and ADMIN_PASSWORD in apps/api/.env.
@@ -12,7 +15,7 @@ import * as argon2 from "argon2";
 
 const prisma = new PrismaClient();
 
-async function main() {
+async function seedAdmin() {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
 
@@ -33,6 +36,27 @@ async function main() {
     data: { email, passwordHash, role: "SUPER_ADMIN" },
   });
   console.log(`Created Super Admin account for ${email}.`);
+}
+
+async function seedSubscriptionPlans() {
+  const existing = await prisma.subscriptionPlan.count();
+  if (existing > 0) {
+    console.log("Subscription plans already exist — nothing to do.");
+    return;
+  }
+
+  await prisma.subscriptionPlan.createMany({
+    data: [
+      { name: "Monthly", billingPeriod: "MONTHLY", priceUsd: 299, trialDays: 30 },
+      { name: "Annual", billingPeriod: "ANNUAL", priceUsd: 2990, trialDays: 30 },
+    ],
+  });
+  console.log("Created default subscription plans (Monthly $299, Annual $2,990).");
+}
+
+async function main() {
+  await seedAdmin();
+  await seedSubscriptionPlans();
 }
 
 main()
