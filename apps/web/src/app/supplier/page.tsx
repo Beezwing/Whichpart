@@ -349,7 +349,8 @@ function ApprovedOverview({
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SummaryLink href="/supplier/products" label="Products" />
         <SummaryLink href="/supplier/locations" label="Locations" />
         <SummaryLink href="/supplier/subscription" label="Subscription" />
         <SummaryLink href="/supplier/payment" label="Payment" />

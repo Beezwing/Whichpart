@@ -75,9 +75,14 @@ export default function AdminSuppliersPage() {
     <main className="mx-auto max-w-4xl flex-1 px-6 py-12">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Supplier applications</h1>
-        <Link href="/admin/subscription-plans" className="text-sm text-[var(--accent)] hover:underline">
-          Subscription plans →
-        </Link>
+        <div className="flex gap-4 text-sm">
+          <Link href="/admin/categories" className="text-[var(--accent)] hover:underline">
+            Categories →
+          </Link>
+          <Link href="/admin/subscription-plans" className="text-[var(--accent)] hover:underline">
+            Subscription plans →
+          </Link>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">

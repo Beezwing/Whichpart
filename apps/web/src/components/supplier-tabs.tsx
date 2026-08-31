@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/supplier", label: "Overview" },
+  { href: "/supplier/products", label: "Products" },
   { href: "/supplier/locations", label: "Locations" },
   { href: "/supplier/subscription", label: "Subscription" },
   { href: "/supplier/payment", label: "Payment" },
@@ -15,7 +16,7 @@ export function SupplierTabs() {
   return (
     <nav className="mb-8 flex gap-1 border-b border-[var(--border)]">
       {TABS.map((tab) => {
-        const active = pathname === tab.href;
+        const active = tab.href === "/supplier" ? pathname === tab.href : pathname?.startsWith(tab.href);
         return (
           <Link
             key={tab.href}

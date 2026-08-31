@@ -54,9 +54,62 @@ async function seedSubscriptionPlans() {
   console.log("Created default subscription plans (Monthly $299, Annual $2,990).");
 }
 
+const CATEGORY_TREE: Record<string, string[]> = {
+  "Engine & Drivetrain": ["Engines", "Engine Components", "Transmissions", "Transmission Components", "Drivetrain"],
+  "Service Parts": [
+    "Oil Filters",
+    "Air Filters",
+    "Fuel Filters",
+    "Spark Plugs",
+    "Belts",
+    "Fluids",
+    "Wipers",
+    "Service Kits",
+    "Other Service Parts",
+  ],
+  Braking: ["Brake Pads", "Brake Rotors", "Calipers", "Brake Lines", "Brake Components"],
+  Electrical: ["Batteries", "Alternators", "Starters", "Sensors", "ECUs", "Wiring", "Electrical Components"],
+  "Suspension & Steering": [],
+  "Cooling System": [],
+  "Body Parts": [],
+  Lighting: [],
+  Interior: [],
+  "Wheels & Tires": [],
+  Accessories: [],
+  "Audio & Electronics": [],
+  "Tools & Equipment": [],
+  "Used Parts": [],
+};
+
+function slugify(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+/** Admin can still add/edit/reorganize freely (Section 16) — this just seeds a starting point. */
+async function seedCategories() {
+  const existing = await prisma.category.count();
+  if (existing > 0) {
+    console.log("Categories already exist — nothing to do.");
+    return;
+  }
+
+  for (const [parentName, children] of Object.entries(CATEGORY_TREE)) {
+    const parent = await prisma.category.create({
+      data: { name: parentName, slug: slugify(parentName) },
+    });
+    for (const childName of children) {
+      await prisma.category.create({
+        data: { name: childName, slug: slugify(`${parentName}-${childName}`), parentId: parent.id },
+      });
+    }
+  }
+  console.log(`Created ${Object.keys(CATEGORY_TREE).length} top-level categories.`);
+}
+
 async function main() {
   await seedAdmin();
   await seedSubscriptionPlans();
+  await seedCategories();
 }
 
 main()

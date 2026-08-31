@@ -8,7 +8,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  app.use(helmet());
+  // Default CORP (same-origin) would block our own web app — a different
+  // origin in dev, and commonly a different subdomain in production —
+  // from even *displaying* authenticated images/documents it's allowed
+  // to fetch. The actual access control is the auth check in each
+  // download endpoint, not this header.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cookieParser());
   app.enableCors({
     origin: config.get<string>('WEB_APP_ORIGIN', 'http://localhost:3000'),
