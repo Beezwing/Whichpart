@@ -21,17 +21,19 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24 text-center">
       <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs uppercase tracking-wide text-[var(--muted)]">
-        Phase 2 — working name
+        Phase 5 — working name
       </span>
       <h1 className="text-4xl font-semibold">{brand.appName}</h1>
       <p className="max-w-md text-[var(--muted)]">{brand.tagline}</p>
       <p className="max-w-md text-sm text-[var(--muted)]">
-        The searchable marketplace is coming in a later build phase — for now, accounts, supplier applications, and
-        admin review are live.
+        Search is live — the full storefront (home browsing, supplier pages, cart) is coming in a later build phase.
       </p>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
+        <Link href="/search">
+          <Button>Search for parts</Button>
+        </Link>
         <Link href="/signup">
-          <Button>Create a customer account</Button>
+          <Button variant="secondary">Create a customer account</Button>
         </Link>
         <Link href="/become-a-supplier">
           <Button variant="secondary">Become a supplier</Button>

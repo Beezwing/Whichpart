@@ -24,8 +24,16 @@ export function NavBar() {
           {brand.shortName}
         </Link>
         <nav className="flex items-center gap-3 text-sm">
+          <Link href="/search" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+            Search
+          </Link>
           {loading ? null : user ? (
             <>
+              {user.role === "CUSTOMER" && (
+                <Link href="/garage" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+                  My garage
+                </Link>
+              )}
               <Link href={landingPathFor(user.role)} className="text-[var(--muted)] hover:text-[var(--foreground)]">
                 My account
               </Link>

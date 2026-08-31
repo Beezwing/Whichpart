@@ -106,10 +106,41 @@ async function seedCategories() {
   console.log(`Created ${Object.keys(CATEGORY_TREE).length} top-level categories.`);
 }
 
+// A real, well-known starting list for Jamaica's used-import market —
+// not exhaustive, and admin can add/edit freely from here (Section 18).
+const VEHICLE_TREE: Record<string, string[]> = {
+  Toyota: ["Corolla", "Axio", "Fielder", "Premio", "Vitz", "Yaris", "RAV4", "Hilux", "Avensis"],
+  Honda: ["Civic", "Fit", "Accord", "CR-V", "Vezel"],
+  Nissan: ["Sunny", "Almera", "Note", "Tiida", "X-Trail", "Wingroad"],
+  Mazda: ["Demio", "Axela", "CX-5", "Familia"],
+  Suzuki: ["Swift", "Vitara", "Alto"],
+  Mitsubishi: ["Lancer", "Outlander", "Mirage"],
+  Hyundai: ["Elantra", "Tucson", "Accent"],
+  Kia: ["Rio", "Sportage", "Picanto"],
+};
+
+/** Admin can add/edit/reorganize freely from here (Section 18). */
+async function seedVehicles() {
+  const existing = await prisma.make.count();
+  if (existing > 0) {
+    console.log("Vehicle makes already exist — nothing to do.");
+    return;
+  }
+
+  for (const [makeName, models] of Object.entries(VEHICLE_TREE)) {
+    const make = await prisma.make.create({ data: { name: makeName } });
+    for (const modelName of models) {
+      await prisma.model.create({ data: { makeId: make.id, name: modelName } });
+    }
+  }
+  console.log(`Created ${Object.keys(VEHICLE_TREE).length} vehicle makes with their common models.`);
+}
+
 async function main() {
   await seedAdmin();
   await seedSubscriptionPlans();
   await seedCategories();
+  await seedVehicles();
 }
 
 main()

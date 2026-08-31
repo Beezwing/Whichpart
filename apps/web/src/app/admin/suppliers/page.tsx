@@ -79,6 +79,9 @@ export default function AdminSuppliersPage() {
           <Link href="/admin/categories" className="text-[var(--accent)] hover:underline">
             Categories →
           </Link>
+          <Link href="/admin/vehicles" className="text-[var(--accent)] hover:underline">
+            Vehicles →
+          </Link>
           <Link href="/admin/subscription-plans" className="text-[var(--accent)] hover:underline">
             Subscription plans →
           </Link>

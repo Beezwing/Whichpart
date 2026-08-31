@@ -15,6 +15,9 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
+import { GarageModule } from './garage/garage.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { ProductsModule } from './products/products.module';
     SubscriptionsModule,
     CategoriesModule,
     ProductsModule,
+    VehiclesModule,
+    GarageModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
