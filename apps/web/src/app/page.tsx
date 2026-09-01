@@ -1,56 +1,109 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brand } from "@autoparts/shared";
-import { Button } from "../components/ui";
+import { api, apiUrl } from "../lib/api";
+import { Button, Card, Input } from "../components/ui";
+import type { CategoryNode } from "../lib/categories";
 
-type HealthState = { status: "checking" | "online" | "offline"; timestamp?: string };
+interface RecentProduct {
+  id: string;
+  name: string;
+  price: string;
+  condition: string;
+  imageUrl: string | null;
+  supplier: { tradingName: string };
+}
 
 export default function Home() {
-  const [health, setHealth] = useState<HealthState>({ status: "checking" });
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [categories, setCategories] = useState<CategoryNode[]>([]);
+  const [recent, setRecent] = useState<RecentProduct[]>([]);
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-    fetch(`${apiUrl}/health`)
-      .then((res) => res.json())
-      .then((data) => setHealth({ status: "online", timestamp: data.timestamp }))
-      .catch(() => setHealth({ status: "offline" }));
+    void api.get<CategoryNode[]>("/categories").then((c) => setCategories(c.slice(0, 8)));
+    void api
+      .get<{ items: RecentProduct[] }>("/search/products?sort=relevance&pageSize=8")
+      .then((r) => setRecent(r.items));
   }, []);
 
+  function onSearch(e: React.FormEvent) {
+    e.preventDefault();
+    router.push(`/search${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24 text-center">
-      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs uppercase tracking-wide text-[var(--muted)]">
-        Phase 5 — working name
-      </span>
-      <h1 className="text-4xl font-semibold">{brand.appName}</h1>
-      <p className="max-w-md text-[var(--muted)]">{brand.tagline}</p>
-      <p className="max-w-md text-sm text-[var(--muted)]">
-        Search is live — the full storefront (home browsing, supplier pages, cart) is coming in a later build phase.
-      </p>
-      <div className="flex flex-wrap justify-center gap-3">
-        <Link href="/search">
-          <Button>Search for parts</Button>
-        </Link>
-        <Link href="/signup">
-          <Button variant="secondary">Create a customer account</Button>
-        </Link>
-        <Link href="/become-a-supplier">
-          <Button variant="secondary">Become a supplier</Button>
-        </Link>
-      </div>
-      <div className="flex items-center gap-2 text-sm">
-        <span
-          className={`h-2 w-2 rounded-full ${
-            health.status === "online" ? "bg-green-500" : health.status === "offline" ? "bg-red-500" : "bg-yellow-500"
-          }`}
-        />
-        <span className="text-[var(--muted)]">
-          {health.status === "checking" && "Checking API connection…"}
-          {health.status === "online" && `API connected (${health.timestamp})`}
-          {health.status === "offline" && "API not reachable — start it with npm run dev in apps/api"}
-        </span>
-      </div>
+    <main className="flex-1">
+      <section className="flex flex-col items-center gap-6 px-6 py-20 text-center">
+        <h1 className="text-4xl font-semibold">{brand.appName}</h1>
+        <p className="max-w-md text-[var(--muted)]">{brand.tagline}</p>
+        <form onSubmit={onSearch} className="flex w-full max-w-lg gap-2">
+          <Input
+            placeholder="Part name, OEM number, SKU, chassis number…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Button type="submit">Search</Button>
+        </form>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Link href="/signup">
+            <Button variant="secondary">Create a customer account</Button>
+          </Link>
+          <Link href="/become-a-supplier">
+            <Button variant="secondary">Become a supplier</Button>
+          </Link>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-medium">Browse by category</h2>
+          <Link href="/categories" className="text-sm text-[var(--accent)] hover:underline">
+            All categories →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {categories.map((c) => (
+            <Link key={c.id} href={`/search?categoryId=${c.id}`}>
+              <Card className="text-center hover:border-[var(--accent)]">
+                <p className="text-sm font-medium">{c.name}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {recent.length > 0 && (
+        <section className="mx-auto max-w-5xl px-6 pb-20">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-medium">Recently listed</h2>
+            <Link href="/search" className="text-sm text-[var(--accent)] hover:underline">
+              See all →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {recent.map((p) => (
+              <Link key={p.id} href={`/product/${p.id}`}>
+                <Card className="hover:border-[var(--accent)]">
+                  {p.imageUrl && (
+                    <img
+                      src={`${apiUrl}/products/images/${p.imageUrl}/file`}
+                      alt=""
+                      className="mb-2 h-24 w-full rounded-lg object-cover"
+                    />
+                  )}
+                  <p className="text-sm font-medium">{p.name}</p>
+                  <p className="text-xs text-[var(--muted)]">{p.supplier.tradingName}</p>
+                  <p className="mt-1 font-semibold">${Number(p.price).toLocaleString()}</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

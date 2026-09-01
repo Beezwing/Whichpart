@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { brand } from "@autoparts/shared";
 import { AuthProvider } from "../lib/auth-context";
+import { CartProvider } from "../lib/cart";
 import { NavBar } from "../components/nav-bar";
 import "./globals.css";
 
@@ -28,8 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <NavBar />
-          {children}
+          <CartProvider>
+            <NavBar />
+            {children}
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

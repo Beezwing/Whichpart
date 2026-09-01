@@ -11,6 +11,7 @@ export const updateSupplierProfileSchema = z.object({
   phone: z.string().min(7).max(20).optional(),
   website: z.string().url().optional().or(z.literal("")),
   physicalAddress: z.string().min(5).max(300).optional(),
+  description: z.string().max(2000).optional(),
 });
 export type UpdateSupplierProfileInput = z.infer<typeof updateSupplierProfileSchema>;
 

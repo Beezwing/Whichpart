@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,7 +14,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import { StorageService } from '../storage/storage.service';
 import { AiCategorizationService } from '../ai/ai-categorization.service';
-import type { AuthenticatedUser } from '../common/current-user.decorator';
 import {
   generateImportTemplate,
   parseImportWorkbook,
@@ -349,26 +347,12 @@ export class ProductsService {
     await this.prisma.productImage.delete({ where: { id: imageId } });
   }
 
-  async getImageFile(imageId: string, requester: AuthenticatedUser) {
+  /** Public (Section 13) — see the ProductImagesController doc comment. */
+  async getImageFile(imageId: string) {
     const image = await this.prisma.productImage.findUnique({
       where: { id: imageId },
-      include: {
-        product: { include: { supplier: { include: { users: true } } } },
-      },
     });
     if (!image) throw new NotFoundException('Image not found.');
-
-    // Product photos are meant to be public marketplace content once the
-    // marketplace itself exists (Phase 6) — for now, while there is no
-    // public catalog yet, only the owning supplier or an admin can view
-    // them, same posture as verification documents.
-    const isOwner = image.product.supplier.users.some(
-      (u) => u.userId === requester.id,
-    );
-    const isAdmin =
-      requester.role === 'ADMIN' || requester.role === 'SUPER_ADMIN';
-    if (!isOwner && !isAdmin) throw new ForbiddenException();
-
     return this.storage.read(image.url);
   }
 

@@ -145,6 +145,7 @@ model Supplier {
   email                     String
   website                   String?
   authorizedRepresentativeName String
+  description               String?
   verificationStatus        SupplierVerificationStatus @default(DRAFT)
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
@@ -159,6 +160,7 @@ model Supplier {
   conversations  Conversation[]
   promotions     Promotion[]
   paymentAccount SupplierPaymentAccount?
+  wishlistedBy   Wishlist[]
 
   @@index([verificationStatus])
 }
@@ -425,13 +427,18 @@ model SavedVehicle {
   @@index([customerId])
 }
 
+// A row saves either a product or a supplier, never both (Section 37) —
+// enforced in WishlistService, not the schema, since Prisma has no
+// portable "exactly one of" constraint.
 model Wishlist {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   productId  String?
-  product    Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  product    Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
 
   @@index([customerId])
 }

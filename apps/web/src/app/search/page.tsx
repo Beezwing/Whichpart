@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, apiUrl } from "../../lib/api";
 import { Badge, Button, Card, Input } from "../../components/ui";
 
@@ -250,17 +251,21 @@ function SearchPageInner() {
           <div className="flex flex-col gap-3">
             {results.map((r) => (
               <Card key={r.id} className="flex gap-4">
-                {r.imageUrl && (
-                  <img
-                    src={`${apiUrl}/products/images/${r.imageUrl}/file`}
-                    alt=""
-                    className="hidden h-20 w-20 rounded-lg object-cover sm:block"
-                  />
-                )}
+                <Link href={`/product/${r.id}`} className="shrink-0">
+                  {r.imageUrl && (
+                    <img
+                      src={`${apiUrl}/products/images/${r.imageUrl}/file`}
+                      alt=""
+                      className="hidden h-20 w-20 rounded-lg object-cover sm:block"
+                    />
+                  )}
+                </Link>
                 <div className="flex-1">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium">{r.name}</p>
+                      <Link href={`/product/${r.id}`} className="font-medium hover:underline">
+                        {r.name}
+                      </Link>
                       <p className="text-xs text-[var(--muted)]">
                         {r.condition} · {r.category?.name ?? "Uncategorized"} · SKU {r.sku}
                       </p>
@@ -270,7 +275,9 @@ function SearchPageInner() {
                     </p>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-medium">{r.supplier.tradingName}</span>
+                    <Link href={`/suppliers/${r.supplier.id}`} className="font-medium hover:underline">
+                      {r.supplier.tradingName}
+                    </Link>
                     {r.supplier.verificationStatus === "APPROVED" && <Badge tone="good">Verified Supplier</Badge>}
                     <span className="text-[var(--muted)]">
                       {r.totalQuantity > 0 ? `${r.totalQuantity} available` : "Out of stock"}

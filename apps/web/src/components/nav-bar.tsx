@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { brand } from "@autoparts/shared";
 import { useAuth } from "../lib/auth-context";
+import { useCart } from "../lib/cart";
 import { Button } from "./ui";
 
 function landingPathFor(role: string): string {
@@ -15,6 +16,7 @@ function landingPathFor(role: string): string {
 
 export function NavBar() {
   const { user, loading, logout } = useAuth();
+  const { itemCount } = useCart();
   const router = useRouter();
 
   return (
@@ -27,12 +29,20 @@ export function NavBar() {
           <Link href="/search" className="text-[var(--muted)] hover:text-[var(--foreground)]">
             Search
           </Link>
+          <Link href="/cart" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+            Cart{itemCount > 0 && ` (${itemCount})`}
+          </Link>
           {loading ? null : user ? (
             <>
               {user.role === "CUSTOMER" && (
-                <Link href="/garage" className="text-[var(--muted)] hover:text-[var(--foreground)]">
-                  My garage
-                </Link>
+                <>
+                  <Link href="/garage" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+                    My garage
+                  </Link>
+                  <Link href="/wishlist" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+                    Wishlist
+                  </Link>
+                </>
               )}
               <Link href={landingPathFor(user.role)} className="text-[var(--muted)] hover:text-[var(--foreground)]">
                 My account

@@ -70,6 +70,10 @@ export class SuppliersService {
       id: supplier.id,
       tradingName: supplier.tradingName,
       legalBusinessName: supplier.legalBusinessName,
+      phone: supplier.phone,
+      website: supplier.website,
+      physicalAddress: supplier.physicalAddress,
+      description: supplier.description,
       verificationStatus: supplier.verificationStatus,
       verification: verification
         ? {
@@ -181,6 +185,7 @@ export class SuppliersService {
         phone: input.phone,
         website: input.website || null,
         physicalAddress: input.physicalAddress,
+        description: input.description,
       },
     });
     await this.auditLog.record({

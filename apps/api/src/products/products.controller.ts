@@ -193,18 +193,20 @@ export class ProductsController {
   }
 }
 
+/**
+ * Public, deliberately: a product photo is only reachable this way if
+ * you already know its (random, unguessable) image ID, and product
+ * listings themselves are public marketplace content once a supplier is
+ * approved (Section 13) — unlike verification documents, there's no
+ * reason to gate these behind login.
+ */
 @Controller('products/images')
-@Auth()
 export class ProductImagesController {
   constructor(private readonly products: ProductsService) {}
 
   @Get(':id/file')
-  async downloadImage(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Res() res: Response,
-  ) {
-    const buffer = await this.products.getImageFile(id, user);
+  async downloadImage(@Param('id') id: string, @Res() res: Response) {
+    const buffer = await this.products.getImageFile(id);
     res.setHeader('Content-Type', 'application/octet-stream');
     res.send(buffer);
   }

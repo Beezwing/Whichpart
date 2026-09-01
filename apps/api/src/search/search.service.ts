@@ -13,6 +13,7 @@ export interface SearchProductsQuery {
   mfrPartNumber?: string;
   sku?: string;
   categoryId?: string;
+  supplierId?: string;
   condition?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -91,6 +92,7 @@ export class SearchService {
         },
       });
     if (query.categoryId) and.push({ categoryId: query.categoryId });
+    if (query.supplierId) and.push({ supplierId: query.supplierId });
     if (query.condition) and.push({ condition: query.condition as never });
     if (query.minPrice != null) and.push({ price: { gte: query.minPrice } });
     if (query.maxPrice != null) and.push({ price: { lte: query.maxPrice } });

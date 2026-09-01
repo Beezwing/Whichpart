@@ -6,7 +6,7 @@ import Link from "next/link";
 import { documentTypes, updateSupplierProfileSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
-import { Alert, Badge, Button, Card, Field, Input } from "../../components/ui";
+import { Alert, Badge, Button, Card, Field, Input, Textarea } from "../../components/ui";
 import { SupplierTabs } from "../../components/supplier-tabs";
 
 interface SupplierDocument {
@@ -21,6 +21,7 @@ interface SupplierMe {
   phone: string;
   website: string | null;
   physicalAddress: string;
+  description: string | null;
   verificationStatus: string;
   verification: { id: string; status: string; documents: SupplierDocument[] } | null;
 }
@@ -287,6 +288,7 @@ function ApprovedOverview({
     phone: supplier.phone,
     website: supplier.website ?? "",
     physicalAddress: supplier.physicalAddress,
+    description: supplier.description ?? "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -377,6 +379,13 @@ function ApprovedOverview({
             <Input
               value={form.physicalAddress}
               onChange={(e) => setForm({ ...form, physicalAddress: e.target.value })}
+            />
+          </Field>
+          <Field label="Description (shown on your public profile)" error={errors.description}>
+            <Textarea
+              rows={4}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </Field>
           <div>
