@@ -140,11 +140,13 @@ export default function CartPage() {
         </div>
       </Card>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col gap-3">
         <Alert variant="info">
-          Checkout isn&apos;t built yet — you&apos;ll pay each supplier separately once it is (multiple suppliers in
-          one cart means multiple payments, never one combined charge).
+          Multiple suppliers in one cart means multiple orders and multiple payments — never one combined charge.
         </Alert>
+        <Link href="/checkout">
+          <Button>Proceed to checkout</Button>
+        </Link>
       </div>
     </main>
   );

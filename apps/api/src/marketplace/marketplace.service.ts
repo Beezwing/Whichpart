@@ -59,6 +59,7 @@ export class MarketplaceService {
             openingHours: true,
             pickupAvailable: true,
             deliveryAvailable: true,
+            deliveryZones: true,
           },
         },
         _count: { select: { products: { where: { isActive: true } } } },

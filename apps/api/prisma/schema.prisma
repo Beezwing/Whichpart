@@ -457,6 +457,11 @@ model Order {
   location         SupplierLocation?    @relation(fields: [locationId], references: [id])
   status           OrderStatus          @default(AWAITING_PAYMENT)
   paymentStatus    PaymentStatus        @default(PENDING)
+  // Stock is "reserved" implicitly: available quantity is computed as
+  // on-hand minus items on orders that are still AWAITING_PAYMENT and
+  // not yet expired (Section 34). No background job needed to release a
+  // reservation — an expired order just stops counting on the next read.
+  paymentExpiresAt DateTime?
   subtotal         Decimal              @db.Decimal(12, 2)
   deliveryFee      Decimal              @db.Decimal(12, 2) @default(0)
   total            Decimal              @db.Decimal(12, 2)

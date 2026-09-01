@@ -20,6 +20,8 @@ import { GarageModule } from './garage/garage.module';
 import { SearchModule } from './search/search.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { WishlistModule } from './wishlist/wishlist.module';
+import { CheckoutModule } from './checkout/checkout.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { WishlistModule } from './wishlist/wishlist.module';
     SearchModule,
     MarketplaceModule,
     WishlistModule,
+    CheckoutModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

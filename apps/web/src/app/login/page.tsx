@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { loginSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
@@ -11,7 +11,16 @@ import { Alert, Button, Card, Field, Input } from "../../components/ui";
 import type { CurrentUser } from "../../lib/auth-context";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="flex-1 px-6 py-16 text-sm text-[var(--muted)]">Loading…</main>}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const { refresh } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +41,8 @@ export default function LoginPage() {
       await api.post("/auth/login", parsed.data);
       const me = await api.get<CurrentUser>("/auth/me");
       await refresh();
-      router.push(landingPathFor(me.role));
+      const next = params.get("next");
+      router.push(next && next.startsWith("/") ? next : landingPathFor(me.role));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
