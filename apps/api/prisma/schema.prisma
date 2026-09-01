@@ -90,6 +90,7 @@ enum PaymentStatus {
 enum PaymentProviderType {
   LUNIPAY
   FYGARO
+  DIMEPAY
 }
 
 enum PromotionTier {

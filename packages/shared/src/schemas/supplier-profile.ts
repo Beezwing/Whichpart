@@ -42,7 +42,7 @@ export const choosePlanSchema = z.object({
 export type ChoosePlanInput = z.infer<typeof choosePlanSchema>;
 
 export const paymentAccountSchema = z.object({
-  provider: z.enum(["LUNIPAY", "FYGARO"]),
+  provider: z.enum(["LUNIPAY", "FYGARO", "DIMEPAY"]),
   publicIdentifier: z.string().min(1).max(200),
   apiKey: z.string().min(1).max(500),
 });

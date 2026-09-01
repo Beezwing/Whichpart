@@ -314,10 +314,11 @@ export class SuppliersService {
 
   // ---------- Payment connection (Section 27) ----------
   // The marketplace never holds supplier sale funds (Rule 1): the supplier
-  // connects their OWN LuniPay/Fygaro account. We can't verify these
-  // credentials against either provider's API yet — that integration is
-  // explicitly pending confirmation from LuniPay/Fygaro (see the Phase 0
-  // architecture report). Status here is self-attested until Phase 7.
+  // connects their OWN LuniPay/Fygaro/DimePay account. We can't verify
+  // these credentials against any provider's live API yet — that
+  // integration is still pending a few confirmed details (refund
+  // endpoints, exact fees) from each provider. Status here is
+  // self-attested until Phase 7.
 
   async getPaymentAccount(userId: string) {
     const supplierId = await this.requireSupplierId(userId);

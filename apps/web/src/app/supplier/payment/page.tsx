@@ -8,8 +8,16 @@ import { useAuth } from "../../../lib/auth-context";
 import { Alert, Badge, Button, Card, Field, Input } from "../../../components/ui";
 import { SupplierTabs } from "../../../components/supplier-tabs";
 
+type Provider = "LUNIPAY" | "FYGARO" | "DIMEPAY";
+
+const PROVIDER_LABELS: Record<Provider, string> = {
+  LUNIPAY: "LuniPay",
+  FYGARO: "Fygaro",
+  DIMEPAY: "DimePay",
+};
+
 interface PaymentAccount {
-  provider: "LUNIPAY" | "FYGARO";
+  provider: Provider;
   status: string;
   publicIdentifier: string;
   maskedApiKey: string | null;
@@ -22,7 +30,7 @@ export default function PaymentPage() {
   const [account, setAccount] = useState<PaymentAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ provider: "LUNIPAY" as "LUNIPAY" | "FYGARO", publicIdentifier: "", apiKey: "" });
+  const [form, setForm] = useState({ provider: "LUNIPAY" as Provider, publicIdentifier: "", apiKey: "" });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -80,8 +88,9 @@ export default function PaymentPage() {
       <SupplierTabs />
 
       <Alert variant="info">
-        Customer payments go straight to <strong>your own</strong> LuniPay or Fygaro account — the marketplace never
-        holds or touches your sale proceeds. Enter the same account you use to accept payments today.
+        Customer payments go straight to <strong>your own</strong> LuniPay, Fygaro, or DimePay account — the
+        marketplace never holds or touches your sale proceeds. Enter the same account you use to accept payments
+        today.
       </Alert>
 
       {error && (
@@ -93,7 +102,7 @@ export default function PaymentPage() {
       {account && (
         <Card className="mt-6">
           <div className="flex items-center justify-between">
-            <p className="font-medium">{account.provider === "LUNIPAY" ? "LuniPay" : "Fygaro"}</p>
+            <p className="font-medium">{PROVIDER_LABELS[account.provider]}</p>
             <Badge tone={account.status === "CONNECTED" ? "good" : "neutral"}>{account.status}</Badge>
           </div>
           <p className="mt-2 text-sm text-[var(--muted)]">Identifier: {account.publicIdentifier}</p>
@@ -109,11 +118,14 @@ export default function PaymentPage() {
           <Field label="Provider">
             <select
               value={form.provider}
-              onChange={(e) => setForm({ ...form, provider: e.target.value as "LUNIPAY" | "FYGARO" })}
+              onChange={(e) => setForm({ ...form, provider: e.target.value as Provider })}
               className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
             >
-              <option value="LUNIPAY">LuniPay</option>
-              <option value="FYGARO">Fygaro</option>
+              {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_LABELS[p]}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Public payment identifier (e.g. your payment link ID)" error={fieldErrors.publicIdentifier}>

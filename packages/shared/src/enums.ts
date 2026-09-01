@@ -90,5 +90,6 @@ export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
 export const PaymentProvider = {
   LUNIPAY: "LUNIPAY",
   FYGARO: "FYGARO",
+  DIMEPAY: "DIMEPAY",
 } as const;
 export type PaymentProvider = (typeof PaymentProvider)[keyof typeof PaymentProvider];
