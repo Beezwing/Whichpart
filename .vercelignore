@@ -1,0 +1,7 @@
+node_modules
+**/node_modules
+.turbo
+apps/api
+apps/mobile
+apps/web/.next
+apps/web/node_modules

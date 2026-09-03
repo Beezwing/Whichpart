@@ -28,6 +28,9 @@ apps/mobile/web-build/
 # turbo
 .turbo/
 
+# vercel (local project link — machine-specific, not shared)
+.vercel/
+
 # logs
 npm-debug.log*
 yarn-debug.log*
