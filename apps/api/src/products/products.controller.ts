@@ -10,9 +10,10 @@ import {
   Query,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import {
   createProductSchema,
@@ -31,6 +32,7 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { ProductsService } from './products.service';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_BULK_IMAGE_FILES = 500;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Some clients (including curl without an explicit --form type=) report
 // generic application/octet-stream for zip-based formats like .xlsx —
@@ -87,6 +89,30 @@ export class ProductsController {
       throw new BadRequestException('Please upload an .xlsx file.');
     }
     return this.products.bulkImport(user.id, file.buffer);
+  }
+
+  @Post('bulk-images')
+  @UseInterceptors(
+    FilesInterceptor('files', MAX_BULK_IMAGE_FILES, {
+      limits: { fileSize: MAX_FILE_BYTES },
+    }),
+  )
+  bulkAddImages(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files?.length)
+      throw new BadRequestException('No files were uploaded.');
+    const bad = files.find((f) => !ALLOWED_IMAGE_TYPES.includes(f.mimetype));
+    if (bad) {
+      throw new BadRequestException(
+        `${bad.originalname}: only JPEG, PNG, or WEBP images are accepted.`,
+      );
+    }
+    return this.products.bulkAddImages(
+      user.id,
+      files.map((f) => ({ buffer: f.buffer, originalname: f.originalname })),
+    );
   }
 
   @Post()

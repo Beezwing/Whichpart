@@ -14,6 +14,11 @@ interface ImportSummary {
   warnings: { row: number; message: string }[];
 }
 
+interface BulkImageSummary {
+  matched: { filename: string; sku: string; productId: string; productName: string }[];
+  unmatched: string[];
+}
+
 export default function BulkUploadPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -21,6 +26,11 @@ export default function BulkUploadPage() {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageSummary, setImageSummary] = useState<BulkImageSummary | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -42,6 +52,24 @@ export default function BulkUploadPage() {
       setError(err instanceof ApiError ? err.message : "Upload failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function uploadImages() {
+    if (imageFiles.length === 0) return;
+    setImageBusy(true);
+    setImageError(null);
+    setImageSummary(null);
+    try {
+      const form = new FormData();
+      for (const f of imageFiles) form.append("files", f);
+      const result = await api.postForm<BulkImageSummary>("/suppliers/me/products/bulk-images", form);
+      setImageSummary(result);
+      setImageFiles([]);
+    } catch (err) {
+      setImageError(err instanceof ApiError ? err.message : "Upload failed.");
+    } finally {
+      setImageBusy(false);
     }
   }
 
@@ -133,6 +161,75 @@ export default function BulkUploadPage() {
                 ))}
               </ul>
             </Alert>
+          )}
+        </Card>
+      )}
+
+      <h1 className="mb-2 mt-10 text-2xl font-semibold">Bulk photos</h1>
+      <p className="mb-6 text-sm text-[var(--muted)]">
+        Add photos for many products at once. Name each file after the product&apos;s SKU exactly (e.g.{" "}
+        <code>MIT-SHO-065.jpg</code>) — that filename is the only thing used to match a photo to a product.
+      </p>
+
+      <Card>
+        <h2 className="mb-2 text-lg font-medium">Select photos</h2>
+        {imageError && (
+          <div className="mb-3">
+            <Alert variant="error">{imageError}</Alert>
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          onChange={(e) => setImageFiles(e.target.files ? Array.from(e.target.files) : [])}
+          className="mb-3 text-sm"
+        />
+        {imageFiles.length > 0 && (
+          <p className="mb-3 text-xs text-[var(--muted)]">{imageFiles.length} file(s) selected.</p>
+        )}
+        <div>
+          <Button disabled={imageFiles.length === 0 || imageBusy} onClick={() => void uploadImages()}>
+            {imageBusy ? "Uploading…" : "Upload photos"}
+          </Button>
+        </div>
+      </Card>
+
+      {imageSummary && (
+        <Card className="mt-6">
+          <h2 className="mb-3 text-lg font-medium">Photo upload summary</h2>
+          <dl className="mb-4 grid grid-cols-2 gap-3 text-center text-sm">
+            <div>
+              <dt className="text-xs uppercase text-[var(--muted)]">Matched</dt>
+              <dd className="text-xl font-semibold text-green-700">{imageSummary.matched.length}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-[var(--muted)]">Unmatched</dt>
+              <dd className="text-xl font-semibold text-red-700">{imageSummary.unmatched.length}</dd>
+            </div>
+          </dl>
+
+          {imageSummary.unmatched.length > 0 && (
+            <div className="mb-3">
+              <Alert variant="error">
+                <p className="mb-1 font-medium">No product found with these filenames as their SKU</p>
+                <ul className="list-inside list-disc">
+                  {imageSummary.unmatched.map((filename) => (
+                    <li key={filename}>{filename}</li>
+                  ))}
+                </ul>
+              </Alert>
+            </div>
+          )}
+
+          {imageSummary.matched.length > 0 && (
+            <ul className="flex flex-col gap-1 text-sm text-[var(--muted)]">
+              {imageSummary.matched.map((m) => (
+                <li key={m.filename}>
+                  {m.filename} → {m.productName} <span className="text-xs">(SKU {m.sku})</span>
+                </li>
+              ))}
+            </ul>
           )}
         </Card>
       )}

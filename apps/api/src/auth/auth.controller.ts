@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import {
   changePasswordSchema,
   loginSchema,
@@ -23,10 +23,16 @@ const isProd = process.env.NODE_ENV === 'production';
 // Railway), so cross-site fetch/XHR needs SameSite=None (which requires
 // Secure). In dev they're same-site (localhost, different port), where
 // Lax already works and None would need HTTPS we don't have locally.
-const cookieOptions = {
+// Typed against express's own CookieOptions (not an inline `as` cast) so
+// that "sameSite: 'none' | 'lax'" survives ESLint's autofix pass -- a
+// bare `as` cast here was getting silently stripped as "unnecessary" by
+// --fix, which doesn't see that res.cookie()/clearCookie() need the
+// narrowed literal type, not the widened `string` the ternary infers on
+// its own. That's genuinely bitten this file twice already.
+const cookieOptions: CookieOptions = {
   httpOnly: true,
   secure: isProd,
-  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+  sameSite: isProd ? 'none' : 'lax',
 };
 
 @Controller('auth')

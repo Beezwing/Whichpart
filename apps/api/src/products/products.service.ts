@@ -321,6 +321,73 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Bulk-import (Section 10) only ever carries text/number fields — a
+   * spreadsheet can't hold image bytes — so a supplier who imports
+   * hundreds of products via spreadsheet has no photos on any of them
+   * afterward. This lets them attach photos in one pass by naming each
+   * file after the product's SKU (e.g. "MIT-SHO-065.jpg"), matching
+   * purely on filename since that's the only thing tying a photo to a
+   * product before it's attached. Never touches price/qty/sku.
+   */
+  async bulkAddImages(
+    userId: string,
+    files: { buffer: Buffer; originalname: string }[],
+  ) {
+    const supplierId = await this.requireSupplierId(userId);
+    const products = await this.prisma.product.findMany({
+      where: { supplierId },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        _count: { select: { images: true } },
+      },
+    });
+    const bySku = new Map(products.map((p) => [p.sku.toLowerCase(), p]));
+    // Tracks how many images we've queued for a product in this same
+    // batch, so two files matching the same SKU don't both claim to be
+    // "the first" image or collide on sortOrder.
+    const pendingCount = new Map<string, number>();
+
+    const matched: {
+      filename: string;
+      sku: string;
+      productId: string;
+      productName: string;
+    }[] = [];
+    const unmatched: string[] = [];
+
+    for (const file of files) {
+      const sku = file.originalname.replace(/\.[^./\\]+$/, '');
+      const product = bySku.get(sku.toLowerCase());
+      if (!product) {
+        unmatched.push(file.originalname);
+        continue;
+      }
+
+      const alreadyQueued = pendingCount.get(product.id) ?? 0;
+      const key = await this.storage.save(file.buffer, file.originalname);
+      await this.prisma.productImage.create({
+        data: {
+          productId: product.id,
+          url: key,
+          isPrimary: product._count.images === 0 && alreadyQueued === 0,
+          sortOrder: product._count.images + alreadyQueued,
+        },
+      });
+      pendingCount.set(product.id, alreadyQueued + 1);
+      matched.push({
+        filename: file.originalname,
+        sku: product.sku,
+        productId: product.id,
+        productName: product.name,
+      });
+    }
+
+    return { matched, unmatched };
+  }
+
   async setPrimaryImage(userId: string, productId: string, imageId: string) {
     const product = await this.requireOwnProduct(userId, productId);
     if (!product.images.some((img) => img.id === imageId))
