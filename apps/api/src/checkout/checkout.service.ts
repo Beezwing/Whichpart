@@ -216,6 +216,8 @@ export class CheckoutService {
         total,
         deliveryProvider: fulfillment.deliveryMethod,
         deliveryAddress: fulfillment.deliveryAddress,
+        deliveryLatitude: fulfillment.deliveryLatitude,
+        deliveryLongitude: fulfillment.deliveryLongitude,
         recipientName: fulfillment.recipientName,
         recipientPhone: fulfillment.recipientPhone,
         items: {

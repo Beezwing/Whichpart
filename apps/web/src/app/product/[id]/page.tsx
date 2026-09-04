@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError, apiUrl } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
@@ -35,6 +35,7 @@ interface Product {
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
@@ -77,6 +78,14 @@ export default function ProductPage() {
     }
   }
 
+  function goBack() {
+    // Prefer real browser back so search filters/scroll position survive —
+    // only fall back to a fixed destination when there's no history to
+    // return to (e.g. the page was opened directly via a bookmark/link).
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/search");
+  }
+
   function addToCart() {
     if (!product) return;
     addItem({
@@ -106,6 +115,12 @@ export default function ProductPage() {
 
   return (
     <main className="mx-auto max-w-4xl flex-1 px-6 py-10">
+      <button
+        onClick={goBack}
+        className="mb-4 text-sm text-[var(--muted)] hover:text-[var(--foreground)] hover:underline"
+      >
+        ← Back to results
+      </button>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
           <div className="mb-3 aspect-square overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">

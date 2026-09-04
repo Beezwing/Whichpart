@@ -7,6 +7,7 @@ import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useCart, type CartItem } from "../../lib/cart";
 import { Alert, Button, Card } from "../../components/ui";
+import { LocationPicker } from "../../components/location-picker";
 
 interface DeliveryZone {
   name: string;
@@ -34,6 +35,7 @@ interface SupplierFulfillment {
   recipientName: string;
   recipientPhone: string;
   deliveryAddress: string;
+  deliveryPin: { lat: number; lng: number } | null;
 }
 
 interface OrderResult {
@@ -83,6 +85,7 @@ export default function CheckoutPage() {
               recipientName: "",
               recipientPhone: "",
               deliveryAddress: "",
+              deliveryPin: null,
             };
           }
           return next;
@@ -126,6 +129,8 @@ export default function CheckoutPage() {
             recipientName: f.recipientName || undefined,
             recipientPhone: f.recipientPhone || undefined,
             deliveryAddress: f.deliveryAddress || undefined,
+            deliveryLatitude: f.deliveryMethod === "SUPPLIER_DELIVERY" ? f.deliveryPin?.lat : undefined,
+            deliveryLongitude: f.deliveryMethod === "SUPPLIER_DELIVERY" ? f.deliveryPin?.lng : undefined,
           };
         }),
       };
@@ -273,11 +278,11 @@ export default function CheckoutPage() {
                       onChange={(e) => updateFulfillment(supplierId, { recipientPhone: e.target.value })}
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
                     />
-                    <input
-                      placeholder="Delivery address"
-                      value={f.deliveryAddress}
-                      onChange={(e) => updateFulfillment(supplierId, { deliveryAddress: e.target.value })}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                    <LocationPicker
+                      address={f.deliveryAddress}
+                      onAddressChange={(deliveryAddress) => updateFulfillment(supplierId, { deliveryAddress })}
+                      pin={f.deliveryPin}
+                      onPinChange={(deliveryPin) => updateFulfillment(supplierId, { deliveryPin })}
                     />
                   </>
                 )}

@@ -21,6 +21,11 @@ export const supplierFulfillmentSchema = z.object({
   recipientName: z.string().max(150).optional(),
   recipientPhone: z.string().max(20).optional(),
   deliveryAddress: z.string().max(300).optional(),
+  // Optional pin dropped on the map at checkout — purely a courier aid,
+  // never used in place of deliveryAddress (which stays the record of
+  // what the customer typed/agreed to).
+  deliveryLatitude: z.number().min(-90).max(90).optional(),
+  deliveryLongitude: z.number().min(-180).max(180).optional(),
 });
 export type SupplierFulfillmentInput = z.infer<typeof supplierFulfillmentSchema>;
 
