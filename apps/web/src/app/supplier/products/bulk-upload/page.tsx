@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError, apiUrl } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
 import { Alert, Button, Card } from "../../../../components/ui";
@@ -168,7 +169,12 @@ export default function BulkUploadPage() {
       <h1 className="mb-2 mt-10 text-2xl font-semibold">Bulk photos</h1>
       <p className="mb-6 text-sm text-[var(--muted)]">
         Add photos for many products at once. Name each file after the product&apos;s SKU exactly (e.g.{" "}
-        <code>MIT-SHO-065.jpg</code>) — that filename is the only thing used to match a photo to a product.
+        <code>MIT-SHO-065.jpg</code>) — that filename is the only thing used to match a photo to a product. If your
+        photos aren&apos;t named after a SKU yet (e.g. real inventory photos with camera filenames), use the{" "}
+        <Link href="/supplier/products/match-photos" className="text-[var(--accent)] hover:underline">
+          photo matcher
+        </Link>{" "}
+        instead to pick each match by hand, quickly.
       </p>
 
       <Card>
