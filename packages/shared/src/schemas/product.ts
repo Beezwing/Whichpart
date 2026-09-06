@@ -39,6 +39,10 @@ export const createProductSchema = z.object({
   price: z.number().positive().finite(),
   oemPartNumber: z.string().max(60).optional(),
   manufacturerPartNumber: z.string().max(60).optional(),
+  // Oversized/heavy (complete engines, engine blocks) — flags this item
+  // as needing a manual delivery quote instead of a flat zone fee.
+  // Defaults false: most parts fit a normal delivery.
+  requiresFreightQuote: z.boolean().optional(),
   compatibility: vehicleCompatibilityInputSchema.optional(),
   locationId: z.string().uuid(),
   quantity: z.number().int().nonnegative(),
@@ -83,6 +87,10 @@ export const productImportRowSchema = z.object({
   quantity: z.number().int().nonnegative(),
   location: z.string().min(1).max(150),
   compatibilityNotes: z.string().max(1000).optional(),
+  // Parsed from a Y/N-style cell in coerceRow. Undefined means the
+  // column was left blank -- on re-import that leaves an existing
+  // product's flag untouched rather than resetting it to false.
+  requiresFreightQuote: z.boolean().optional(),
 });
 export type ProductImportRow = z.infer<typeof productImportRowSchema>;
 

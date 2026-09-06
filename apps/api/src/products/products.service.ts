@@ -148,6 +148,7 @@ export class ProductsService {
         price: input.price,
         oemPartNumber: input.oemPartNumber,
         manufacturerPartNumber: input.manufacturerPartNumber,
+        requiresFreightQuote: input.requiresFreightQuote ?? false,
         inventory: {
           create: { locationId: input.locationId, quantity: input.quantity },
         },
@@ -215,6 +216,7 @@ export class ProductsService {
         price: input.price,
         oemPartNumber: input.oemPartNumber,
         manufacturerPartNumber: input.manufacturerPartNumber,
+        requiresFreightQuote: input.requiresFreightQuote,
       },
     });
 
@@ -641,6 +643,16 @@ export class ProductsService {
     };
     const asNumber = (v: unknown) =>
       v == null || v === '' ? undefined : Number(v);
+    // Blank stays undefined ("not specified this import") rather than
+    // false, so re-uploading a file that leaves this column empty never
+    // silently resets a flag the supplier already set on the product page.
+    const asBoolean = (v: unknown): boolean | undefined => {
+      const s = asString(v)?.toLowerCase();
+      if (!s) return undefined;
+      if (['y', 'yes', 'true', '1'].includes(s)) return true;
+      if (['n', 'no', 'false', '0'].includes(s)) return false;
+      return undefined;
+    };
     const conditionRaw = asString(values.condition)?.toUpperCase();
     return {
       sku: asString(values.sku),
@@ -667,6 +679,7 @@ export class ProductsService {
       quantity: asNumber(values.quantity),
       location: asString(values.location),
       compatibilityNotes: asString(values.compatibilityNotes),
+      requiresFreightQuote: asBoolean(values.requiresFreightQuote),
     };
   }
 
@@ -708,6 +721,8 @@ export class ProductsService {
               price: row.price,
               oemPartNumber: row.oemPartNumber,
               manufacturerPartNumber: row.manufacturerPartNumber,
+              requiresFreightQuote:
+                row.requiresFreightQuote ?? existing.requiresFreightQuote,
             },
           })
         : await tx.product.create({
@@ -722,6 +737,7 @@ export class ProductsService {
               price: row.price,
               oemPartNumber: row.oemPartNumber,
               manufacturerPartNumber: row.manufacturerPartNumber,
+              requiresFreightQuote: row.requiresFreightQuote ?? false,
             },
           });
 

@@ -22,6 +22,7 @@ interface Product {
   currency: string;
   oemPartNumber: string | null;
   manufacturerPartNumber: string | null;
+  requiresFreightQuote: boolean;
   category: { id: string; name: string } | null;
   brand: { id: string; name: string } | null;
   images: ProductImage[];
@@ -96,6 +97,7 @@ export default function ProductPage() {
       sku: product.sku,
       price: Number(product.price),
       imageUrl: product.images[0]?.url ?? null,
+      requiresFreightQuote: product.requiresFreightQuote,
     });
     setMessage("Added to cart.");
   }
@@ -163,6 +165,16 @@ export default function ProductPage() {
           <p className="mb-4 text-3xl font-semibold">
             ${Number(product.price).toLocaleString()} <span className="text-sm font-normal">{product.currency}</span>
           </p>
+
+          {product.requiresFreightQuote && (
+            <div className="mb-4">
+              <Badge tone="warn">Freight item — delivery by quote only</Badge>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Too large/heavy for standard delivery. Pickup is available as normal — for delivery, message the
+                supplier after ordering to arrange it.
+              </p>
+            </div>
+          )}
 
           {message && (
             <div className="mb-3">

@@ -39,6 +39,11 @@ export const IMPORT_COLUMNS = [
     example: 'Fits 1NZ-FE engines only',
   },
   {
+    header: 'Freight (Y/N)',
+    key: 'requiresFreightQuote',
+    example: 'N',
+  },
+  {
     header: 'Photo Filename(s)',
     key: 'photoFilenames',
     example: 'ABC-ALT-001-01.jpg, ABC-ALT-001-02.jpg',
@@ -76,6 +81,9 @@ export async function generateImportTemplate(): Promise<Buffer> {
     '   page after import — the Photo Filename(s) column here is just your own reference.',
     '7. Uploading a SKU that already exists in your account UPDATES that product (including its',
     '   price and quantity) instead of creating a duplicate.',
+    '8. Freight (Y/N): mark Y for oversized/heavy items (complete engines, engine blocks) that a',
+    "   flat delivery fee can't safely cover. Customers can only pick these up or contact you",
+    '   directly for delivery — leave blank or N for everything else.',
   ];
   lines.forEach((line, i) => {
     instructions.getCell(i + 1, 1).value = line;

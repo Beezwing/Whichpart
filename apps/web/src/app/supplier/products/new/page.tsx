@@ -25,6 +25,7 @@ const emptyForm = {
   price: "",
   oemPartNumber: "",
   manufacturerPartNumber: "",
+  requiresFreightQuote: false,
   locationId: "",
   quantity: "0",
   make: "",
@@ -83,6 +84,7 @@ export default function NewProductPage() {
       price: Number(form.price),
       oemPartNumber: form.oemPartNumber || undefined,
       manufacturerPartNumber: form.manufacturerPartNumber || undefined,
+      requiresFreightQuote: form.requiresFreightQuote,
       locationId: form.locationId,
       quantity: Number(form.quantity),
       compatibility: hasCompatibility
@@ -193,6 +195,23 @@ export default function NewProductPage() {
               onChange={(e) => set("manufacturerPartNumber", e.target.value)}
             />
           </Field>
+          <div className="sm:col-span-2">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={form.requiresFreightQuote}
+                onChange={(e) => setForm((f) => ({ ...f, requiresFreightQuote: e.target.checked }))}
+              />
+              <span>
+                Requires a manual freight quote
+                <span className="block text-xs text-[var(--muted)]">
+                  Oversized/heavy — complete engines, engine blocks. Customers can only pick this up or contact you
+                  to arrange delivery; it won&apos;t use your flat delivery zone fees.
+                </span>
+              </span>
+            </label>
+          </div>
           <Field label="Location" error={errors.locationId}>
             <select
               value={form.locationId}

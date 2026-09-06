@@ -18,6 +18,10 @@ export interface CartItem {
   price: number;
   imageUrl: string | null;
   quantity: number;
+  // Copied in at add-to-cart time purely so checkout can warn the
+  // customer early — never trusted for the actual gate, which checkout
+  // re-checks against the real product record server-side.
+  requiresFreightQuote?: boolean;
 }
 
 const STORAGE_KEY = "autoparts-cart-v1";

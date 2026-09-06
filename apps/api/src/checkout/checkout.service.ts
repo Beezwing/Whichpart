@@ -181,6 +181,20 @@ export class CheckoutService {
         throw new BadRequestException(
           `${location.name} doesn't offer delivery.`,
         );
+      // Freight items (complete engines, engine blocks) can't safely go
+      // through a flat delivery zone fee — this is enforced here, not
+      // just hidden in the UI, since the cart's requiresFreightQuote copy
+      // is never authoritative (Rule 13/14). The customer's route around
+      // this is pickup, or contacting the supplier directly to arrange
+      // delivery outside checkout's flat-fee flow.
+      const freightItems = items
+        .map((item) => productById.get(item.productId)!)
+        .filter((p) => p.requiresFreightQuote);
+      if (freightItems.length > 0) {
+        throw new BadRequestException(
+          `${freightItems.map((p) => p.name).join(', ')} need${freightItems.length === 1 ? 's' : ''} a manual freight quote — choose pickup, or contact ${supplier.tradingName} directly to arrange delivery.`,
+        );
+      }
       const zones =
         (location.deliveryZones as unknown as DeliveryZone[] | null) ?? [];
       const zone = zones.find((z) => z.name === fulfillment.deliveryZoneName);

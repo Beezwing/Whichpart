@@ -361,6 +361,11 @@ model Product {
   oemPartNumber          String?
   manufacturerPartNumber String?
   isActive               Boolean           @default(true)
+  // Oversized/heavy items (complete engines, engine blocks) that a flat
+  // delivery zone fee can't safely cover — checkout blocks
+  // SUPPLIER_DELIVERY for these and points the customer to pickup or a
+  // manual quote from the supplier instead (see checkout.service.ts).
+  requiresFreightQuote   Boolean           @default(false)
   // AI-suggested fields only — never authoritative, always supplier-approved
   aiSuggestedCategoryId  String?
   aiSuggestedKeywords    String[]

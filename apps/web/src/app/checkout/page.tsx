@@ -96,12 +96,38 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router]);
 
+  // Freight items can't go through the flat-fee delivery flow — if the
+  // cart already has one selected as SUPPLIER_DELIVERY (e.g. it was
+  // added before the item became freight, or before pickup was chosen),
+  // fall back to pickup rather than leave a doomed selection in place.
+  useEffect(() => {
+    setFulfillment((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const supplierId of supplierIds) {
+        if (next[supplierId]?.deliveryMethod === "SUPPLIER_DELIVERY" && hasFreightItem(supplierId)) {
+          next[supplierId] = { ...next[supplierId], deliveryMethod: "PICKUP", deliveryZoneName: "" };
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
   function updateFulfillment(supplierId: string, patch: Partial<SupplierFulfillment>) {
     setFulfillment((prev) => ({ ...prev, [supplierId]: { ...prev[supplierId], ...patch } }));
   }
 
   function itemsFor(supplierId: string): CartItem[] {
     return items.filter((i) => i.supplierId === supplierId);
+  }
+
+  // Client-side only — a courtesy so the customer sees this before they
+  // fill out the whole delivery form, not the actual gate. Checkout
+  // re-checks the real product record server-side either way.
+  function hasFreightItem(supplierId: string): boolean {
+    return itemsFor(supplierId).some((i) => i.requiresFreightQuote);
   }
 
   function estimatedTotal(supplierId: string): number {
@@ -185,6 +211,14 @@ export default function CheckoutPage() {
     );
   }
 
+  // A supplier with a freight item and no pickup at the chosen location is
+  // a genuine dead end for this checkout flow — better to say so plainly
+  // than let the customer hit a server error after filling out the form.
+  const blockedSuppliers = supplierIds.filter((supplierId) => {
+    const location = suppliers[supplierId]?.locations.find((l) => l.id === fulfillment[supplierId]?.locationId);
+    return hasFreightItem(supplierId) && !location?.pickupAvailable;
+  });
+
   return (
     <main className="mx-auto max-w-2xl flex-1 px-6 py-12">
       <h1 className="mb-6 text-2xl font-semibold">Checkout</h1>
@@ -201,6 +235,7 @@ export default function CheckoutPage() {
           const f = fulfillment[supplierId];
           if (!supplier || !f) return null;
           const location = supplier.locations.find((l) => l.id === f.locationId);
+          const freight = hasFreightItem(supplierId);
 
           return (
             <Card key={supplierId}>
@@ -240,7 +275,7 @@ export default function CheckoutPage() {
                       Pickup
                     </label>
                   )}
-                  {location?.deliveryAvailable && (
+                  {location?.deliveryAvailable && !freight && (
                     <label className="flex items-center gap-1">
                       <input
                         type="radio"
@@ -251,6 +286,15 @@ export default function CheckoutPage() {
                     </label>
                   )}
                 </div>
+
+                {freight && (
+                  <Alert variant="info">
+                    This order includes an oversized item that needs a manual delivery quote.{" "}
+                    {location?.pickupAvailable
+                      ? "Pickup is available above — for delivery, message the supplier after ordering to arrange it."
+                      : `${supplier.tradingName} doesn't offer pickup at this location — message them directly to arrange delivery before ordering.`}
+                  </Alert>
+                )}
 
                 {f.deliveryMethod === "SUPPLIER_DELIVERY" && (
                   <>
@@ -297,7 +341,16 @@ export default function CheckoutPage() {
       </div>
 
       <div className="mt-6">
-        <Button disabled={submitting} onClick={() => void submitOrder()}>
+        {blockedSuppliers.length > 0 && (
+          <div className="mb-3">
+            <Alert variant="error">
+              {blockedSuppliers.map((id) => suppliers[id]?.tradingName).join(", ")} can&apos;t fulfill this order as-is
+              — no pickup option and delivery needs a manual quote for a freight item. Message the supplier to
+              arrange it before ordering.
+            </Alert>
+          </div>
+        )}
+        <Button disabled={submitting || blockedSuppliers.length > 0} onClick={() => void submitOrder()}>
           {submitting ? "Placing order…" : "Place order"}
         </Button>
         <p className="mt-2 text-xs text-[var(--muted)]">

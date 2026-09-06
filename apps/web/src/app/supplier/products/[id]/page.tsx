@@ -36,6 +36,7 @@ interface Product {
   isActive: boolean;
   oemPartNumber: string | null;
   manufacturerPartNumber: string | null;
+  requiresFreightQuote: boolean;
   aiSuggestedCategoryId: string | null;
   aiSuggestedKeywords: string[];
   aiCleanedDescription: string | null;
@@ -202,6 +203,7 @@ function BusinessInfoForm({
     price: product.price,
     oemPartNumber: product.oemPartNumber ?? "",
     manufacturerPartNumber: product.manufacturerPartNumber ?? "",
+    requiresFreightQuote: product.requiresFreightQuote,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -220,6 +222,7 @@ function BusinessInfoForm({
       price: Number(form.price),
       oemPartNumber: form.oemPartNumber || undefined,
       manufacturerPartNumber: form.manufacturerPartNumber || undefined,
+      requiresFreightQuote: form.requiresFreightQuote,
     });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -307,6 +310,23 @@ function BusinessInfoForm({
             onChange={(e) => setForm({ ...form, manufacturerPartNumber: e.target.value })}
           />
         </Field>
+        <div className="sm:col-span-2">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.requiresFreightQuote}
+              onChange={(e) => setForm({ ...form, requiresFreightQuote: e.target.checked })}
+            />
+            <span>
+              Requires a manual freight quote
+              <span className="block text-xs text-[var(--muted)]">
+                Oversized/heavy — complete engines, engine blocks. Customers can only pick this up or contact you to
+                arrange delivery; it won&apos;t use your flat delivery zone fees.
+              </span>
+            </span>
+          </label>
+        </div>
         <div className="sm:col-span-2">
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
