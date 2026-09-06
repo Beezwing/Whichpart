@@ -22,7 +22,8 @@ export function NavBar() {
   return (
     <header className="brand-header border-b border-[var(--border)]">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-xl font-extrabold tracking-tight">
+        <Link href="/" className="flex items-center gap-2 text-xl font-extrabold tracking-tight">
+          <img src="/brand/which-part-icon.png" alt="" className="h-9 w-auto" />
           {brand.shortName}
         </Link>
         <nav className="flex items-center gap-3 text-sm">
