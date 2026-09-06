@@ -26,13 +26,19 @@ export type DeliveryZone = z.infer<typeof deliveryZoneSchema>;
 export const supplierLocationSchema = z.object({
   name: z.string().min(1).max(150),
   address: z.string().min(5).max(300),
-  phone: z.string().min(7).max(20).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
-  openingHours: z.string().max(300).optional(),
+  // Editing an existing location round-trips these straight from the
+  // API response, and Prisma returns null (not undefined) for a
+  // nullable column that was never set -- .optional() alone rejects
+  // that null, which silently failed every save on a location that
+  // had never had a phone/coordinates/hours set, with no visible
+  // error since none of these render an error message in the form.
+  phone: z.string().min(7).max(20).nullable().optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  openingHours: z.string().max(300).nullable().optional(),
   pickupAvailable: z.boolean(),
   deliveryAvailable: z.boolean(),
-  deliveryZones: z.array(deliveryZoneSchema).max(20).optional(),
+  deliveryZones: z.array(deliveryZoneSchema).max(20).nullable().optional(),
 });
 export type SupplierLocationInput = z.infer<typeof supplierLocationSchema>;
 

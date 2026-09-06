@@ -13,6 +13,7 @@ import {
   type SupplierLocationInput,
   type UpdateSupplierProfileInput,
 } from '@autoparts/shared';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import { CryptoService } from '../common/crypto.service';
@@ -199,6 +200,16 @@ export class SuppliersService {
 
   // ---------- Locations (Section 41) ----------
 
+  // openingHours/deliveryZones are Json? columns -- Prisma treats a
+  // plain JS `null` there as a type error (it wants the explicit
+  // Prisma.JsonNull sentinel to mean "set this JSON column to SQL
+  // NULL", since JSON's own null and "no value" aren't the same
+  // thing to it). undefined still means "leave it alone" on update.
+  private toJsonField<T>(value: T | null | undefined) {
+    if (value === null) return Prisma.JsonNull;
+    return value as T | undefined;
+  }
+
   async listLocations(userId: string) {
     const supplierId = await this.requireSupplierId(userId);
     return this.prisma.supplierLocation.findMany({
@@ -217,10 +228,10 @@ export class SuppliersService {
         phone: input.phone,
         latitude: input.latitude,
         longitude: input.longitude,
-        openingHours: input.openingHours,
+        openingHours: this.toJsonField(input.openingHours),
         pickupAvailable: input.pickupAvailable,
         deliveryAvailable: input.deliveryAvailable,
-        deliveryZones: input.deliveryZones,
+        deliveryZones: this.toJsonField(input.deliveryZones),
       },
     });
   }
@@ -248,10 +259,10 @@ export class SuppliersService {
         phone: input.phone,
         latitude: input.latitude,
         longitude: input.longitude,
-        openingHours: input.openingHours,
+        openingHours: this.toJsonField(input.openingHours),
         pickupAvailable: input.pickupAvailable,
         deliveryAvailable: input.deliveryAvailable,
-        deliveryZones: input.deliveryZones,
+        deliveryZones: this.toJsonField(input.deliveryZones),
       },
     });
   }
