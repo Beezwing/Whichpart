@@ -649,3 +649,22 @@ model AuditLog {
   @@index([actorUserId])
   @@index([resourceType, resourceId])
 }
+
+// Anonymous aggregate only — no userId, no session/IP, no per-search rows.
+// Each distinct free-text search term gets ONE row that's incremented on
+// every use, so this can never be traced back to who searched what or
+// when a specific person searched. Purpose is purely: "what are
+// customers typing that we should stock more of" (noResultCount) and
+// "what's popular" (searchCount).
+model SearchTermStat {
+  id              String   @id @default(uuid())
+  normalizedTerm  String   @unique
+  displayTerm     String
+  searchCount     Int      @default(0)
+  noResultCount   Int      @default(0)
+  firstSearchedAt DateTime @default(now())
+  lastSearchedAt  DateTime @default(now())
+
+  @@index([searchCount])
+  @@index([noResultCount])
+}

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -52,6 +52,8 @@ function haversineKm(
  */
 @Injectable()
 export class SearchService {
+  private readonly logger = new Logger(SearchService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async searchProducts(query: SearchProductsQuery) {
@@ -167,6 +169,15 @@ export class SearchService {
       this.prisma.product.count({ where }),
     ]);
 
+    // Fire-and-forget: never let logging a search term slow down or
+    // break the search itself, and only on page 1 so paging through
+    // results doesn't inflate the count for the same search.
+    if (query.q && query.page === 1) {
+      this.recordSearchTerm(query.q, total).catch((err: unknown) =>
+        this.logger.warn(`Failed to record search term: ${String(err)}`),
+      );
+    }
+
     const results = items.map((product) => {
       const totalQuantity = product.inventory.reduce(
         (sum, inv) => sum + inv.quantity,
@@ -228,5 +239,34 @@ export class SearchService {
       page: query.page,
       pageSize: query.pageSize,
     };
+  }
+
+  /**
+   * Anonymous aggregate only (Section: search history). No userId, no
+   * session, no IP — one row per distinct term, incremented on every
+   * use. This can tell the business "what are customers typing" and
+   * "what are we missing" (noResultCount), never "who searched what."
+   */
+  private async recordSearchTerm(rawTerm: string, resultCount: number) {
+    const normalized = rawTerm.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (normalized.length < 2) return;
+
+    const displayTerm = rawTerm.trim().replace(/\s+/g, ' ').slice(0, 200);
+
+    await this.prisma.searchTermStat.upsert({
+      where: { normalizedTerm: normalized.slice(0, 200) },
+      create: {
+        normalizedTerm: normalized.slice(0, 200),
+        displayTerm,
+        searchCount: 1,
+        noResultCount: resultCount === 0 ? 1 : 0,
+      },
+      update: {
+        displayTerm,
+        searchCount: { increment: 1 },
+        noResultCount: resultCount === 0 ? { increment: 1 } : undefined,
+        lastSearchedAt: new Date(),
+      },
+    });
   }
 }

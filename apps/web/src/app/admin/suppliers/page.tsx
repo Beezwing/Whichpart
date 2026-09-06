@@ -85,6 +85,9 @@ export default function AdminSuppliersPage() {
           <Link href="/admin/subscription-plans" className="text-[var(--accent)] hover:underline">
             Subscription plans →
           </Link>
+          <Link href="/admin/search-terms" className="text-[var(--accent)] hover:underline">
+            Search terms →
+          </Link>
         </div>
       </div>
 
