@@ -37,8 +37,17 @@ export default function Home() {
 
   return (
     <main className="flex-1">
-      <section className="flex flex-col items-center gap-6 px-6 py-20 text-center">
-        <h1 className="text-4xl font-semibold">{brand.appName}</h1>
+      <section className="flex flex-col items-center gap-6 px-6 py-16 text-center">
+        <img
+          src="/brand/which-part-flat.png"
+          alt={brand.appName}
+          className="h-40 w-40 sm:h-48 sm:w-48 logo-light-only"
+        />
+        <img
+          src="/brand/which-part-badge.png"
+          alt={brand.appName}
+          className="h-40 w-40 rounded-2xl sm:h-48 sm:w-48 logo-dark-only"
+        />
         <p className="max-w-md text-[var(--muted)]">{brand.tagline}</p>
         <form onSubmit={onSearch} className="flex w-full max-w-lg gap-2">
           <Input

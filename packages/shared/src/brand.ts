@@ -5,15 +5,17 @@
  * editing this one file, not hunting through the codebase.
  */
 export const brand = {
-  appName: "AutoParts Marketplace",
-  shortName: "AutoParts",
+  appName: "Which Part?",
+  shortName: "Which Part?",
   tagline: "Find the right part, from a supplier you can trust.",
   supportEmail: "support@example.com",
   colors: {
-    primary: "#C8590C",
+    primary: "#1E9E4A",
     primaryInk: "#FFFFFF",
-    secondary: "#2C4A66",
+    secondary: "#0F5C2A",
     secondaryInk: "#FFFFFF",
+    gold: "#F2C230",
+    goldInk: "#1B1D1F",
     background: "#F5F4F0",
     surface: "#FFFFFF",
     ink: "#1B1D1F",

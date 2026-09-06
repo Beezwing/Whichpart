@@ -4,6 +4,12 @@
  * Temporary design tokens (Master Spec Section 84). These mirror
  * packages/shared/src/brand.ts by hand for now — Phase 6 wires up the
  * full component library described in Section 52.
+ *
+ * "Green Forward" theme: --secondary is the deep brand green used for
+ * the site header/nav chrome specifically (not a general-purpose
+ * surface); --accent is the brighter green used for buttons, links,
+ * and hover states; --gold is defined but deliberately used sparingly
+ * (small badges/highlights only) rather than as a second primary.
  */
 :root {
   --background: #f5f4f0;
@@ -11,9 +17,11 @@
   --foreground: #1b1d1f;
   --muted: #666d71;
   --border: #dbd6cb;
-  --accent: #c8590c;
+  --accent: #1e9e4a;
   --accent-foreground: #ffffff;
-  --secondary: #2c4a66;
+  --secondary: #0f5c2a;
+  --gold: #f2c230;
+  --gold-foreground: #1b1d1f;
 }
 
 @theme inline {
@@ -25,6 +33,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-secondary: var(--secondary);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -36,9 +46,11 @@
     --foreground: #ece9e2;
     --muted: #9ba3a8;
     --border: #343b41;
-    --accent: #e1852f;
-    --accent-foreground: #1b1200;
-    --secondary: #7ca0c4;
+    --accent: #34c76a;
+    --accent-foreground: #0b1f10;
+    --secondary: #0f5c2a;
+    --gold: #f2c230;
+    --gold-foreground: #1b1d1f;
   }
 }
 
@@ -46,4 +58,29 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Scopes the header/nav to the deep-green brand chrome by redefining
+ * --foreground/--muted/--border locally -- every existing nav link and
+ * button already reads those tokens, so this needs no changes to the
+ * components themselves, just the values in this one scope.
+ */
+.brand-header {
+  background: var(--secondary);
+  --foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.75);
+  --border: rgba(255, 255, 255, 0.22);
+}
+
+/*
+ * The flat logo has an opaque white background baked in -- fine on the
+ * light page, a jarring white box on the dark one -- so the homepage
+ * swaps to the dark badge variant (its own black background reads
+ * naturally there) rather than showing the same file on both.
+ */
+.logo-dark-only { display: none; }
+@media (prefers-color-scheme: dark) {
+  .logo-light-only { display: none; }
+  .logo-dark-only { display: block; }
 }

@@ -20,9 +20,9 @@ export function NavBar() {
   const router = useRouter();
 
   return (
-    <header className="border-b border-[var(--border)]">
+    <header className="brand-header border-b border-[var(--border)]">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-lg font-semibold">
+        <Link href="/" className="text-xl font-extrabold tracking-tight">
           {brand.shortName}
         </Link>
         <nav className="flex items-center gap-3 text-sm">
