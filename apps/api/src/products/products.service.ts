@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
@@ -30,6 +31,15 @@ const PRODUCT_INCLUDE = {
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+  // Background AI suggestions (see upsertFromImportRow) chain onto this
+  // instead of firing all at once -- a large import could otherwise
+  // burst hundreds of concurrent calls to Anthropic's API at once,
+  // which is both a real rate-limit risk and pointless load, since
+  // these are only ever best-effort suggestions, never anything the
+  // import's response waits on.
+  private aiSuggestionQueue: Promise<void> = Promise.resolve();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
@@ -749,8 +759,28 @@ export class ProductsService {
       return product.id;
     });
 
-    if (!categoryId)
-      await this.runAiSuggestion(productId, row.name, row.description);
+    // Never awaited here: with hundreds of rows in one file, blocking
+    // each row on a real network call to Anthropic turned what should
+    // be a fast import into a multi-minute request (this is exactly
+    // what happened -- one real production import took ~4.6 minutes
+    // once a real ANTHROPIC_API_KEY made these calls actually fire).
+    // Chained onto aiSuggestionQueue rather than fired independently,
+    // so a large import processes these one at a time in the
+    // background instead of bursting hundreds of concurrent Anthropic
+    // calls at once. The container stays alive after the response
+    // (this isn't a serverless function that freezes), so every
+    // queued suggestion still lands, just without holding up the
+    // import or racing the API's rate limit.
+    if (!categoryId) {
+      this.aiSuggestionQueue = this.aiSuggestionQueue.then(() =>
+        this.runAiSuggestion(productId, row.name, row.description).catch(
+          (err: unknown) =>
+            this.logger.warn(
+              `Background AI suggestion failed for product ${productId}: ${String(err)}`,
+            ),
+        ),
+      );
+    }
 
     return existing ? 'updated' : 'created';
   }
