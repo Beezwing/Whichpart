@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supplierSignupSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -119,10 +120,25 @@ export default function BecomeSupplierPage() {
               <Input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
             </Field>
           </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 flex flex-col gap-2">
             <Button type="submit" disabled={submitting}>
               {submitting ? "Starting application…" : "Start application"}
             </Button>
+            <p className="text-xs text-[var(--muted)]">
+              By applying you agree to our{" "}
+              <Link href="/terms" className="text-[var(--accent)] hover:underline">
+                Terms
+              </Link>
+              ,{" "}
+              <Link href="/privacy" className="text-[var(--accent)] hover:underline">
+                Privacy Policy
+              </Link>
+              , and{" "}
+              <Link href="/seller-agreement" className="text-[var(--accent)] hover:underline">
+                Seller Agreement
+              </Link>
+              .
+            </p>
           </div>
         </form>
       </Card>

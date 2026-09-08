@@ -70,6 +70,17 @@ export default function SignupPage() {
           <Button type="submit" disabled={submitting}>
             {submitting ? "Creating account…" : "Create account"}
           </Button>
+          <p className="text-center text-xs text-[var(--muted)]">
+            By creating an account you agree to our{" "}
+            <Link href="/terms" className="text-[var(--accent)] hover:underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-[var(--accent)] hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
       </Card>
       <p className="mt-6 text-center text-sm text-[var(--muted)]">

@@ -4,6 +4,7 @@ import { brand } from "@autoparts/shared";
 import { AuthProvider } from "../lib/auth-context";
 import { CartProvider } from "../lib/cart";
 import { NavBar } from "../components/nav-bar";
+import { Footer } from "../components/footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <CartProvider>
             <NavBar />
             {children}
+            <Footer />
           </CartProvider>
         </AuthProvider>
       </body>
