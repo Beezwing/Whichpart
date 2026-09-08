@@ -158,6 +158,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       role: user.role,
+      toursSeen: user.toursSeen,
       customer: user.customer
         ? { name: user.customer.name, phone: user.customer.phone }
         : null,
@@ -169,6 +170,28 @@ export class AuthService {
               user.supplierUsers[0].supplier.verificationStatus,
           }
         : null,
+    };
+  }
+
+  /**
+   * Idempotent by design -- the tour UI calls this once on finish/skip,
+   * but a double-click or retry should never duplicate the id.
+   */
+  async markTourSeen(userId: string, tourId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { toursSeen: true },
+    });
+    if (!user.toursSeen.includes(tourId)) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { toursSeen: { set: [...user.toursSeen, tourId] } },
+      });
+    }
+    return {
+      toursSeen: user.toursSeen.includes(tourId)
+        ? user.toursSeen
+        : [...user.toursSeen, tourId],
     };
   }
 

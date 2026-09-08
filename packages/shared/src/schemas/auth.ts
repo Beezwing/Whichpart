@@ -42,3 +42,12 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(10).max(200),
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+/**
+ * Ids of the guided app tours (Section: onboarding). Versioned so a
+ * meaningfully-redesigned tour can be re-shown to everyone by shipping a
+ * new id ("customer-v2") without touching User.toursSeen for the old one.
+ */
+export const TOUR_IDS = ["customer-v1", "supplier-v1"] as const;
+export const tourIdSchema = z.enum(TOUR_IDS);
+export type TourId = z.infer<typeof tourIdSchema>;

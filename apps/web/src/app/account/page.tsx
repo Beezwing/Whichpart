@@ -6,6 +6,8 @@ import { changePasswordSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { Alert, Button, Card, Field, Input } from "../../components/ui";
+import { ProductTour } from "../../components/product-tour";
+import { CUSTOMER_TOUR_ID, CUSTOMER_TOUR_STEPS } from "../../lib/tours";
 
 const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Customer",
@@ -22,10 +24,17 @@ export default function AccountPage() {
   const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (user?.role === "CUSTOMER" && !user.toursSeen.includes(CUSTOMER_TOUR_ID)) {
+      setShowTour(true);
+    }
+  }, [user]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +62,17 @@ export default function AccountPage() {
 
   return (
     <main className="mx-auto max-w-md flex-1 px-6 py-16">
-      <h1 className="mb-6 text-2xl font-semibold">My account</h1>
+      {showTour && (
+        <ProductTour tourId={CUSTOMER_TOUR_ID} steps={CUSTOMER_TOUR_STEPS} onDone={() => setShowTour(false)} />
+      )}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">My account</h1>
+        {user.role === "CUSTOMER" && (
+          <button onClick={() => setShowTour(true)} className="text-sm text-[var(--accent)] hover:underline">
+            Take the tour
+          </button>
+        )}
+      </div>
       <Card className="mb-6">
         <dl className="flex flex-col gap-2 text-sm">
           <div className="flex justify-between">

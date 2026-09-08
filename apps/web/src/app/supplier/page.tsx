@@ -8,6 +8,8 @@ import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { Alert, Badge, Button, Card, Field, Input, Textarea } from "../../components/ui";
 import { SupplierTabs } from "../../components/supplier-tabs";
+import { ProductTour } from "../../components/product-tour";
+import { SUPPLIER_TOUR_ID, SUPPLIER_TOUR_STEPS } from "../../lib/tours";
 
 interface SupplierDocument {
   id: string;
@@ -293,6 +295,14 @@ function ApprovedOverview({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    if (user && !user.toursSeen.includes(SUPPLIER_TOUR_ID)) {
+      setShowTour(true);
+    }
+  }, [user]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -319,11 +329,19 @@ function ApprovedOverview({
 
   return (
     <main className="mx-auto max-w-2xl flex-1 px-6 py-12">
+      {showTour && (
+        <ProductTour tourId={SUPPLIER_TOUR_ID} steps={SUPPLIER_TOUR_STEPS} onDone={() => setShowTour(false)} />
+      )}
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{supplier.tradingName}</h1>
-        <Badge tone={STATUS_TONE[supplier.verificationStatus] ?? "neutral"}>
-          {supplier.verificationStatus.replaceAll("_", " ")}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowTour(true)} className="text-sm text-[var(--accent)] hover:underline">
+            Take the tour
+          </button>
+          <Badge tone={STATUS_TONE[supplier.verificationStatus] ?? "neutral"}>
+            {supplier.verificationStatus.replaceAll("_", " ")}
+          </Badge>
+        </div>
       </div>
       <SupplierTabs />
 

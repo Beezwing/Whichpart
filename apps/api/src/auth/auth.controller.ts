@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import {
   changePasswordSchema,
   loginSchema,
   registerCustomerSchema,
   supplierSignupSchema,
+  tourIdSchema,
   type ChangePasswordInput,
   type LoginInput,
   type RegisterCustomerInput,
@@ -92,6 +93,15 @@ export class AuthController {
   @Auth()
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getMe(user.id);
+  }
+
+  @Post('tours/:tourId/seen')
+  @Auth()
+  markTourSeen(
+    @Param('tourId', new ZodValidationPipe(tourIdSchema)) tourId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.authService.markTourSeen(user.id, tourId);
   }
 
   @Post('password')

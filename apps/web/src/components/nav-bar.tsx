@@ -30,25 +30,44 @@ export function NavBar() {
           {brand.shortName}
         </Link>
         <nav className="flex items-center gap-3 text-sm">
-          <Link href="/search" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+          <Link href="/search" data-tour="nav-search" className="text-[var(--muted)] hover:text-[var(--foreground)]">
             Search
           </Link>
-          <Link href="/cart" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+          <Link href="/cart" data-tour="nav-cart" className="text-[var(--muted)] hover:text-[var(--foreground)]">
             Cart{itemCount > 0 && ` (${itemCount})`}
           </Link>
           {loading ? null : user ? (
             <>
               {user.role === "CUSTOMER" && (
                 <>
-                  <Link href="/garage" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+                  <Link
+                    href="/garage"
+                    data-tour="nav-garage"
+                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
                     My garage
                   </Link>
-                  <Link href="/wishlist" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+                  <Link
+                    href="/wishlist"
+                    data-tour="nav-wishlist"
+                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
                     Wishlist
+                  </Link>
+                  <Link
+                    href="/orders"
+                    data-tour="nav-orders"
+                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
+                    My orders
                   </Link>
                 </>
               )}
-              <Link href={landingPathFor(user.role)} className="text-[var(--muted)] hover:text-[var(--foreground)]">
+              <Link
+                href={landingPathFor(user.role)}
+                data-tour="nav-account"
+                className="text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
                 My account
               </Link>
               <Button

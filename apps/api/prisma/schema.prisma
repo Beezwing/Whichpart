@@ -106,6 +106,10 @@ model User {
   passwordHash String
   role         UserRole
   isActive     Boolean  @default(true)
+  // Tour ids this user has completed or dismissed (e.g. "customer-v1",
+  // "supplier-v1") -- versioned so a redesigned tour can be re-shown by
+  // bumping the id without touching everyone who already saw the old one.
+  toursSeen    String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
