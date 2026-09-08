@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SUPPLIER_SETTABLE_ORDER_STATUSES } from "@autoparts/shared";
 import { api, ApiError } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/auth-context";
-import { Alert, Badge, Card } from "../../../../components/ui";
+import { Alert, Badge, Button, Card } from "../../../../components/ui";
 
 interface OrderItem {
   id: string;
@@ -59,6 +60,8 @@ export default function SupplierOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nextStatus, setNextStatus] = useState<string>(SUPPLIER_SETTABLE_ORDER_STATUSES[0]);
+  const [updating, setUpdating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +70,19 @@ export default function SupplierOrderDetailPage() {
       setError(err instanceof ApiError ? err.message : "Couldn't load this order.");
     }
   }, [params.id]);
+
+  async function updateStatus() {
+    setError(null);
+    setUpdating(true);
+    try {
+      await api.patch(`/suppliers/me/orders/${params.id}/status`, { status: nextStatus });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't update this order's status.");
+    } finally {
+      setUpdating(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -108,9 +124,35 @@ export default function SupplierOrderDetailPage() {
           <Alert variant="info">
             Awaiting the customer&apos;s payment. Reserved until{" "}
             {order.paymentExpiresAt ? new Date(order.paymentExpiresAt).toLocaleTimeString() : "shortly"} — automated
-            payment collection isn&apos;t connected yet.
+            payment collection isn&apos;t connected yet. Once you&apos;ve confirmed payment directly (LuniPay, Fygaro,
+            or DimePay), mark it Paid below.
           </Alert>
         </div>
+      )}
+
+      {!["CANCELLED", "COMPLETED", "REFUNDED"].includes(order.status) && (
+        <Card className="mb-4">
+          <p className="mb-2 font-medium">Update status</p>
+          <div className="flex gap-2">
+            <select
+              value={nextStatus}
+              onChange={(e) => setNextStatus(e.target.value)}
+              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {SUPPLIER_SETTABLE_ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+            <Button disabled={updating} onClick={() => void updateStatus()}>
+              {updating ? "Updating…" : "Update"}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            The customer gets an email as soon as you update this.
+          </p>
+        </Card>
       )}
 
       <Card>

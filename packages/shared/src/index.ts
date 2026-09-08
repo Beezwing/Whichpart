@@ -8,3 +8,4 @@ export * from "./schemas/vehicle-reference";
 export * from "./schemas/checkout";
 export * from "./schemas/supplier-admin";
 export * from "./schemas/supplier-profile";
+export * from "./schemas/order";

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -12,6 +13,7 @@ import type {
 } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
+import { EmailService } from '../email/email.service';
 
 type ProductWithSupplier = Prisma.ProductGetPayload<{
   include: { supplier: { include: { paymentAccount: true } } };
@@ -19,9 +21,12 @@ type ProductWithSupplier = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    private readonly email: EmailService,
   ) {}
 
   private async requireCustomerId(userId: string): Promise<string> {
@@ -255,7 +260,10 @@ export class CheckoutService {
           },
         },
       },
-      include: { supplier: { select: { tradingName: true, users: true } } },
+      include: {
+        supplier: { select: { tradingName: true, users: true, email: true } },
+        customer: { select: { name: true } },
+      },
     });
 
     await this.auditLog.record({
@@ -274,6 +282,23 @@ export class CheckoutService {
         body: `Order ${orderNumber} — awaiting customer payment.`,
       })),
     });
+
+    // Fire-and-forget -- a supplier who isn't watching the dashboard
+    // should still hear about this, but a bad email address or Resend
+    // hiccup must never fail the order itself.
+    if (order.supplier.email) {
+      this.email
+        .sendNewOrderEmail(order.supplier.email, {
+          orderNumber,
+          total: total.toString(),
+          customerName: order.customer.name,
+        })
+        .catch((err: unknown) =>
+          this.logger.warn(
+            `Failed to email new-order notice for ${orderNumber}: ${String(err)}`,
+          ),
+        );
+    }
 
     return {
       orderId: order.id,
