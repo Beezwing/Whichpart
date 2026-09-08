@@ -299,7 +299,7 @@ function ApprovedOverview({
   const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
-    if (user && !user.toursSeen.includes(SUPPLIER_TOUR_ID)) {
+    if (user && !(user.toursSeen ?? []).includes(SUPPLIER_TOUR_ID)) {
       setShowTour(true);
     }
   }, [user]);

@@ -31,7 +31,7 @@ export default function AccountPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (user?.role === "CUSTOMER" && !user.toursSeen.includes(CUSTOMER_TOUR_ID)) {
+    if (user?.role === "CUSTOMER" && !(user.toursSeen ?? []).includes(CUSTOMER_TOUR_ID)) {
       setShowTour(true);
     }
   }, [user]);

@@ -7,7 +7,9 @@ export interface CurrentUser {
   id: string;
   email: string;
   role: "CUSTOMER" | "SUPPLIER_OWNER" | "SUPPLIER_STAFF" | "SUPPLIER_LOCATION_MANAGER" | "ADMIN" | "SUPER_ADMIN";
-  toursSeen: string[];
+  // Optional: absent when talking to an API deploy that predates this
+  // field (deploys can lag behind the web app) -- never assume present.
+  toursSeen?: string[];
   customer: { name: string; phone: string | null } | null;
   supplier: { id: string; tradingName: string; verificationStatus: string } | null;
 }
