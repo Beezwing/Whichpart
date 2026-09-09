@@ -105,9 +105,9 @@ export default function PaymentPage() {
             <p className="font-medium">{PROVIDER_LABELS[account.provider]}</p>
             <Badge tone={account.status === "CONNECTED" ? "good" : "neutral"}>{account.status}</Badge>
           </div>
-          <p className="mt-2 text-sm text-[var(--muted)]">Identifier: {account.publicIdentifier}</p>
+          <p className="mt-2 break-words text-sm text-[var(--muted)]">Identifier: {account.publicIdentifier}</p>
           {account.maskedApiKey && (
-            <p className="text-sm text-[var(--muted)]">API key on file: {account.maskedApiKey}</p>
+            <p className="break-words text-sm text-[var(--muted)]">API key on file: {account.maskedApiKey}</p>
           )}
         </Card>
       )}

@@ -105,7 +105,7 @@ export default function WishlistPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {suppliers.map((s) => (
-            <Card key={s.wishlistId} className="flex items-center justify-between">
+            <Card key={s.wishlistId} className="flex flex-wrap items-center justify-between gap-2">
               <Link href={`/suppliers/${s.id}`} className="font-medium hover:underline">
                 {s.tradingName}
               </Link>

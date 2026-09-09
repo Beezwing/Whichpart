@@ -332,7 +332,7 @@ function ApprovedOverview({
       {showTour && (
         <ProductTour tourId={SUPPLIER_TOUR_ID} steps={SUPPLIER_TOUR_STEPS} onDone={() => setShowTour(false)} />
       )}
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{supplier.tradingName}</h1>
         <div className="flex items-center gap-3">
           <button onClick={() => setShowTour(true)} className="text-sm text-[var(--accent)] hover:underline">

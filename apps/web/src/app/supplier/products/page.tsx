@@ -68,7 +68,7 @@ export default function SupplierProductsPage() {
 
   return (
     <main className="mx-auto max-w-4xl flex-1 px-6 py-12">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="flex gap-2">
           <Link href="/supplier/products/bulk-upload">
@@ -104,7 +104,7 @@ export default function SupplierProductsPage() {
           ))}
         </div>
         <form
-          className="ml-auto flex gap-2"
+          className="flex w-full gap-2 sm:ml-auto sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             void load(filter, search);
@@ -114,7 +114,7 @@ export default function SupplierProductsPage() {
             placeholder="Search by name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-48"
+            className="w-full sm:w-48"
           />
           <Button type="submit" variant="secondary">
             Search
@@ -137,14 +137,14 @@ export default function SupplierProductsPage() {
             const isLow = p.inventory.some((i) => i.lowStockThreshold != null && i.quantity <= i.lowStockThreshold);
             return (
               <Link key={p.id} href={`/supplier/products/${p.id}`}>
-                <Card className="flex items-center justify-between gap-4 hover:border-[var(--accent)]">
+                <Card className="flex flex-col gap-2 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div>
                     <p className="font-medium">{p.name}</p>
                     <p className="text-xs text-[var(--muted)]">
                       SKU {p.sku} · {p.condition}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
                     <span>${Number(p.price).toLocaleString()} JMD</span>
                     <span className="text-[var(--muted)]">{totalQty} in stock</span>
                     {isLow && <Badge tone="warn">Low stock</Badge>}

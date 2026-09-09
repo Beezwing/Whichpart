@@ -88,7 +88,7 @@ export default function CartPage() {
                     key={item.productId}
                     className="border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <Link href={`/product/${item.productId}`} className="text-sm font-medium hover:underline">
                           {item.name}

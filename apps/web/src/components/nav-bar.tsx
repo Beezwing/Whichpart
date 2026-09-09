@@ -21,19 +21,33 @@ export function NavBar() {
 
   return (
     <header className="brand-header border-b border-[var(--border)]">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4 sm:px-6 sm:py-6">
         <Link
           href="/"
-          className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-[var(--gold)]"
+          className="flex shrink-0 items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--gold)] sm:text-2xl"
         >
-          <img src="/brand/which-part-icon.png" alt="" className="h-14 w-auto" />
-          {brand.shortName}
+          <img src="/brand/which-part-icon.png" alt="" className="h-10 w-auto sm:h-14" />
+          <span className="whitespace-nowrap">{brand.shortName}</span>
         </Link>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link href="/search" data-tour="nav-search" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+        {/* min-w-0 lets this shrink below its content's natural width so it
+            scrolls internally instead of forcing the header (and the whole
+            page) wider than the viewport -- the actual cause of a real
+            horizontal-scroll bug this replaced. Nothing here is ever
+            display:none, so the guided tour's getBoundingClientRect/
+            scrollIntoView still finds every target on a narrow screen too. */}
+        <nav className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto text-sm [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1">
+          <Link
+            href="/search"
+            data-tour="nav-search"
+            className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
             Search
           </Link>
-          <Link href="/cart" data-tour="nav-cart" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+          <Link
+            href="/cart"
+            data-tour="nav-cart"
+            className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
             Cart{itemCount > 0 && ` (${itemCount})`}
           </Link>
           {loading ? null : user ? (
@@ -43,21 +57,21 @@ export function NavBar() {
                   <Link
                     href="/garage"
                     data-tour="nav-garage"
-                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
                   >
                     My garage
                   </Link>
                   <Link
                     href="/wishlist"
                     data-tour="nav-wishlist"
-                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
                   >
                     Wishlist
                   </Link>
                   <Link
                     href="/orders"
                     data-tour="nav-orders"
-                    className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
                   >
                     My orders
                   </Link>
@@ -66,12 +80,13 @@ export function NavBar() {
               <Link
                 href={landingPathFor(user.role)}
                 data-tour="nav-account"
-                className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
               >
                 My account
               </Link>
               <Button
                 variant="secondary"
+                className="shrink-0 whitespace-nowrap"
                 onClick={() => {
                   void logout().then(() => router.push("/"));
                 }}
@@ -81,11 +96,14 @@ export function NavBar() {
             </>
           ) : (
             <>
-              <Link href="/login" className="text-[var(--muted)] hover:text-[var(--foreground)]">
+              <Link
+                href="/login"
+                className="shrink-0 whitespace-nowrap text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
                 Log in
               </Link>
-              <Link href="/signup">
-                <Button>Sign up</Button>
+              <Link href="/signup" className="shrink-0">
+                <Button className="whitespace-nowrap">Sign up</Button>
               </Link>
             </>
           )}

@@ -139,7 +139,7 @@ export default function GaragePage() {
               onCancel={() => setEditingId(null)}
             />
           ) : (
-            <Card key={v.id} className="flex items-center justify-between">
+            <Card key={v.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
                   {v.nickname ? `${v.nickname} — ` : ""}
@@ -151,7 +151,7 @@ export default function GaragePage() {
                     .join(" · ") || "No identifiers saved"}
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
                 <Link
                   href={`/search?make=${encodeURIComponent(v.make)}&model=${encodeURIComponent(v.model)}&year=${v.year}`}
                   className="text-[var(--accent)] hover:underline"

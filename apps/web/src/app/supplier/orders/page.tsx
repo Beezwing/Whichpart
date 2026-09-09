@@ -72,14 +72,14 @@ export default function SupplierOrdersPage() {
         <div className="flex flex-col gap-3">
           {orders.map((o) => (
             <Link key={o.id} href={`/supplier/orders/${o.id}`}>
-              <Card className="flex items-center justify-between hover:border-[var(--accent)]">
+              <Card className="flex flex-col gap-2 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{o.customer.name}</p>
                   <p className="text-xs text-[var(--muted)]">
                     Order {o.orderNumber} · {new Date(o.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Badge tone={STATUS_TONE[o.status] ?? "neutral"}>{o.status.replaceAll("_", " ")}</Badge>
                   <p className="font-semibold">${Number(o.total).toLocaleString()}</p>
                 </div>

@@ -73,9 +73,9 @@ export default function AdminSuppliersPage() {
 
   return (
     <main className="mx-auto max-w-4xl flex-1 px-6 py-12">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Supplier applications</h1>
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
           <Link href="/admin/categories" className="text-[var(--accent)] hover:underline">
             Categories →
           </Link>
