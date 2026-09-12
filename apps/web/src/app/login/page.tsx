@@ -77,6 +77,12 @@ function LoginPageInner() {
           Create a customer account
         </Link>
       </p>
+      <p className="mt-2 text-center text-sm text-[var(--muted)]">
+        Selling auto parts?{" "}
+        <Link href="/become-a-supplier" className="text-[var(--accent)]">
+          Register as a supplier
+        </Link>
+      </p>
     </main>
   );
 }

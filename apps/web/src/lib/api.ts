@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+// Always same-origin, relative to whatever domain this app is served from --
+// next.config.ts rewrites /api/* to the real API so the browser never talks
+// to it cross-site (see the comment there for why that matters on mobile).
+const API_URL = "/api";
 export const apiUrl = API_URL;
 
 export class ApiError extends Error {
