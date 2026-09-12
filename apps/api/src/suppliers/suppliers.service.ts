@@ -18,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import { CryptoService } from '../common/crypto.service';
 import { StorageService } from '../storage/storage.service';
+import { DimePayService } from '../payments/dimepay.service';
 import type { AuthenticatedUser } from '../common/current-user.decorator';
 
 const SUBMITTABLE_STATUSES: string[] = [
@@ -32,6 +33,7 @@ export class SuppliersService {
     private readonly auditLog: AuditLogService,
     private readonly storage: StorageService,
     private readonly crypto: CryptoService,
+    private readonly dimePay: DimePayService,
   ) {}
 
   private async requireOwnSupplier(userId: string) {
@@ -325,11 +327,11 @@ export class SuppliersService {
 
   // ---------- Payment connection (Section 27) ----------
   // The marketplace never holds supplier sale funds (Rule 1): the supplier
-  // connects their OWN LuniPay/Fygaro/DimePay account. We can't verify
-  // these credentials against any provider's live API yet — that
-  // integration is still pending a few confirmed details (refund
-  // endpoints, exact fees) from each provider. Status here is
-  // self-attested until Phase 7.
+  // connects their OWN LuniPay/Fygaro/DimePay account. For DimePay we
+  // now confirm the credentials against their real sandbox/production
+  // API before marking the account CONNECTED (see verifyCredentials()
+  // below) -- LuniPay and Fygaro remain self-attested until their own
+  // integrations are built out the same way.
 
   async getPaymentAccount(userId: string) {
     const supplierId = await this.requireSupplierId(userId);
@@ -344,13 +346,32 @@ export class SuppliersService {
       maskedApiKey: account.encryptedApiKey
         ? CryptoService.mask(this.crypto.decrypt(account.encryptedApiKey))
         : null,
+      maskedApiSecret: account.encryptedApiSecret
+        ? CryptoService.mask(this.crypto.decrypt(account.encryptedApiSecret))
+        : null,
       connectedAt: account.connectedAt,
     };
   }
 
   async updatePaymentAccount(userId: string, input: PaymentAccountInput) {
     const supplierId = await this.requireSupplierId(userId);
+
+    if (input.provider === 'DIMEPAY' && input.apiSecret) {
+      const result = await this.dimePay.verifyCredentials({
+        clientKey: input.apiKey,
+        signingSecret: input.apiSecret,
+      });
+      if (!result.valid) {
+        throw new BadRequestException(
+          result.reason ?? "Couldn't verify these DimePay credentials.",
+        );
+      }
+    }
+
     const encryptedApiKey = this.crypto.encrypt(input.apiKey);
+    const encryptedApiSecret = input.apiSecret
+      ? this.crypto.encrypt(input.apiSecret)
+      : undefined;
 
     await this.prisma.supplierPaymentAccount.upsert({
       where: { supplierId },
@@ -359,6 +380,7 @@ export class SuppliersService {
         provider: input.provider,
         publicIdentifier: input.publicIdentifier,
         encryptedApiKey,
+        encryptedApiSecret,
         status: 'CONNECTED',
         connectedAt: new Date(),
       },
@@ -366,6 +388,7 @@ export class SuppliersService {
         provider: input.provider,
         publicIdentifier: input.publicIdentifier,
         encryptedApiKey,
+        encryptedApiSecret,
         status: 'CONNECTED',
         connectedAt: new Date(),
       },

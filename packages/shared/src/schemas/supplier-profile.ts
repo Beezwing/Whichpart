@@ -47,11 +47,26 @@ export const choosePlanSchema = z.object({
 });
 export type ChoosePlanInput = z.infer<typeof choosePlanSchema>;
 
-export const paymentAccountSchema = z.object({
-  provider: z.enum(["LUNIPAY", "FYGARO", "DIMEPAY"]),
-  publicIdentifier: z.string().min(1).max(200),
-  apiKey: z.string().min(1).max(500),
-});
+export const paymentAccountSchema = z
+  .object({
+    provider: z.enum(["LUNIPAY", "FYGARO", "DIMEPAY"]),
+    publicIdentifier: z.string().min(1).max(200),
+    // DimePay calls this the "Client Key" -- sent as a header on every
+    // request.
+    apiKey: z.string().min(1).max(500),
+    // DimePay-only: the separate secret used to sign every request's JWT
+    // payload, never transmitted directly. Not used by other providers.
+    apiSecret: z.string().min(1).max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === "DIMEPAY" && !data.apiSecret) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["apiSecret"],
+        message: "DimePay requires a signing secret in addition to the client key.",
+      });
+    }
+  });
 export type PaymentAccountInput = z.infer<typeof paymentAccountSchema>;
 
 export const adminUpdatePlanSchema = z.object({

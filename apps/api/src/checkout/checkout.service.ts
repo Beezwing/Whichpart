@@ -13,7 +13,9 @@ import type {
 } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
+import { CryptoService } from '../common/crypto.service';
 import { EmailService } from '../email/email.service';
+import { DimePayService } from '../payments/dimepay.service';
 
 type ProductWithSupplier = Prisma.ProductGetPayload<{
   include: { supplier: { include: { paymentAccount: true } } };
@@ -26,7 +28,9 @@ export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    private readonly crypto: CryptoService,
     private readonly email: EmailService,
+    private readonly dimePay: DimePayService,
   ) {}
 
   private async requireCustomerId(userId: string): Promise<string> {
@@ -109,6 +113,7 @@ export class CheckoutService {
       orderNumber: string;
       supplierName: string;
       total: string;
+      paymentUrl?: string;
     }[] = [];
 
     // Every supplier order is created independently — a failure on one
@@ -262,7 +267,8 @@ export class CheckoutService {
       },
       include: {
         supplier: { select: { tradingName: true, users: true, email: true } },
-        customer: { select: { name: true } },
+        customer: { select: { name: true, user: { select: { email: true } } } },
+        payments: true,
       },
     });
 
@@ -300,11 +306,69 @@ export class CheckoutService {
         );
     }
 
+    // If this supplier's connected provider is DimePay and both
+    // credentials are on file, get the customer a real hosted checkout
+    // link now instead of leaving them on the "reserved, pay the
+    // supplier directly" messaging every other provider still gets.
+    let paymentUrl: string | undefined;
+    const account = supplier.paymentAccount;
+    if (
+      account.provider === 'DIMEPAY' &&
+      account.encryptedApiKey &&
+      account.encryptedApiSecret
+    ) {
+      const orderUrl = await this.dimePay
+        .createHostedCheckout(
+          {
+            clientKey: this.crypto.decrypt(account.encryptedApiKey),
+            signingSecret: this.crypto.decrypt(account.encryptedApiSecret),
+          },
+          {
+            orderId: order.id,
+            total,
+            currency: 'JMD',
+            customerEmail: order.customer.user.email,
+            referenceTransactionId: order.id,
+            items: items.map((item) => {
+              const product = productById.get(item.productId)!;
+              return {
+                id: product.id,
+                name: product.name,
+                price: Number(product.price),
+                sku: product.sku,
+                quantity: item.quantity,
+              };
+            }),
+          },
+        )
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `DimePay hosted-checkout creation failed for order ${orderNumber}: ${String(err)}`,
+          );
+          return null;
+        });
+
+      if (orderUrl) {
+        paymentUrl = orderUrl;
+        const token = DimePayService.tokenFromOrderUrl(orderUrl);
+        if (token) {
+          await this.prisma.payment.update({
+            where: { id: order.payments[0].id },
+            data: { providerReference: token },
+          });
+        }
+      }
+      // A failed hosted-checkout call never blocks the order itself --
+      // the customer just falls back to the existing "pay the supplier
+      // directly, they'll confirm it" flow for this one order.
+    }
+
     return {
       orderId: order.id,
       orderNumber: order.orderNumber,
       supplierName: order.supplier.tradingName,
       total: total.toString(),
+      paymentUrl,
     };
   }
 }

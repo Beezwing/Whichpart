@@ -242,6 +242,11 @@ model SupplierPaymentAccount {
   provider          PaymentProviderType
   status            String              @default("NOT_CONNECTED") // NOT_CONNECTED | PENDING | CONNECTED | ERROR | SUSPENDED
   encryptedApiKey   String?
+  // DimePay needs two secrets: a client_key (sent as a request header,
+  // stored in encryptedApiKey above) and a separate signing secret used
+  // only to sign the JWT payload of every request, never transmitted.
+  // Nullable/unused by providers that only need one credential.
+  encryptedApiSecret String?
   publicIdentifier  String?
   connectedAt       DateTime?
   updatedAt         DateTime            @updatedAt

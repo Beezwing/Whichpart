@@ -43,6 +43,7 @@ interface OrderResult {
   orderNumber: string;
   supplierName: string;
   total: string;
+  paymentUrl?: string;
 }
 
 export default function CheckoutPage() {
@@ -179,17 +180,31 @@ export default function CheckoutPage() {
       <main className="mx-auto max-w-2xl flex-1 px-6 py-12">
         <h1 className="mb-4 text-2xl font-semibold">Orders placed</h1>
         <Alert variant="success">
-          Your order{results.length > 1 ? "s have" : " has"} been created and reserved. Real payment collection
-          isn&apos;t wired up yet — you&apos;ll be prompted to pay each supplier once that&apos;s ready.
+          Your order{results.length > 1 ? "s have" : " has"} been created and reserved.{" "}
+          {results.some((r) => r.paymentUrl)
+            ? "Where a supplier accepts payment through the platform, pay now below to confirm it."
+            : "Real payment collection isn't wired up for these suppliers yet — you'll be prompted to pay directly once that's ready."}
         </Alert>
         <div className="mt-6 flex flex-col gap-3">
           {results.map((r) => (
-            <Card key={r.orderId} className="flex items-center justify-between">
+            <Card key={r.orderId} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">{r.supplierName}</p>
                 <p className="text-xs text-[var(--muted)]">Order {r.orderNumber}</p>
+                {!r.paymentUrl && (
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Payment collection isn&apos;t connected for this supplier yet.
+                  </p>
+                )}
               </div>
-              <p className="font-semibold">${Number(r.total).toLocaleString()}</p>
+              <div className="flex items-center gap-3">
+                <p className="font-semibold">${Number(r.total).toLocaleString()}</p>
+                {r.paymentUrl && (
+                  <a href={r.paymentUrl}>
+                    <Button>Pay now</Button>
+                  </a>
+                )}
+              </div>
             </Card>
           ))}
         </div>

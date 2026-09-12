@@ -21,6 +21,7 @@ interface PaymentAccount {
   status: string;
   publicIdentifier: string;
   maskedApiKey: string | null;
+  maskedApiSecret: string | null;
   connectedAt: string | null;
 }
 
@@ -30,15 +31,22 @@ export default function PaymentPage() {
   const [account, setAccount] = useState<PaymentAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ provider: "LUNIPAY" as Provider, publicIdentifier: "", apiKey: "" });
+  const [form, setForm] = useState({
+    provider: "LUNIPAY" as Provider,
+    publicIdentifier: "",
+    apiKey: "",
+    apiSecret: "",
+  });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const isDimePay = form.provider === "DIMEPAY";
 
   const load = useCallback(async () => {
     try {
       const res = await api.get<PaymentAccount | null>("/suppliers/me/payment-account");
       setAccount(res);
-      if (res) setForm({ provider: res.provider, publicIdentifier: res.publicIdentifier, apiKey: "" });
+      if (res)
+        setForm({ provider: res.provider, publicIdentifier: res.publicIdentifier, apiKey: "", apiSecret: "" });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't load your payment settings.");
     } finally {
@@ -59,7 +67,10 @@ export default function PaymentPage() {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
-    const parsed = paymentAccountSchema.safeParse(form);
+    const parsed = paymentAccountSchema.safeParse({
+      ...form,
+      apiSecret: form.apiSecret || undefined,
+    });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       for (const issue of parsed.error.issues) errs[issue.path[0] as string] = issue.message;
@@ -70,7 +81,7 @@ export default function PaymentPage() {
     try {
       await api.put("/suppliers/me/payment-account", parsed.data);
       await load();
-      setForm((f) => ({ ...f, apiKey: "" }));
+      setForm((f) => ({ ...f, apiKey: "", apiSecret: "" }));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't save your payment connection.");
     } finally {
@@ -90,7 +101,8 @@ export default function PaymentPage() {
       <Alert variant="info">
         Customer payments go straight to <strong>your own</strong> LuniPay, Fygaro, or DimePay account — the
         marketplace never holds or touches your sale proceeds. Enter the same account you use to accept payments
-        today.
+        today. For DimePay, we check your credentials against their real API before saving — LuniPay and Fygaro
+        aren&apos;t verified yet.
       </Alert>
 
       {error && (
@@ -107,7 +119,12 @@ export default function PaymentPage() {
           </div>
           <p className="mt-2 break-words text-sm text-[var(--muted)]">Identifier: {account.publicIdentifier}</p>
           {account.maskedApiKey && (
-            <p className="break-words text-sm text-[var(--muted)]">API key on file: {account.maskedApiKey}</p>
+            <p className="break-words text-sm text-[var(--muted)]">
+              {account.provider === "DIMEPAY" ? "Client key" : "API key"} on file: {account.maskedApiKey}
+            </p>
+          )}
+          {account.maskedApiSecret && (
+            <p className="break-words text-sm text-[var(--muted)]">Signing secret on file: {account.maskedApiSecret}</p>
           )}
         </Card>
       )}
@@ -128,13 +145,16 @@ export default function PaymentPage() {
               ))}
             </select>
           </Field>
-          <Field label="Public payment identifier (e.g. your payment link ID)" error={fieldErrors.publicIdentifier}>
+          <Field
+            label={isDimePay ? "Account label (e.g. your business email)" : "Public payment identifier (e.g. your payment link ID)"}
+            error={fieldErrors.publicIdentifier}
+          >
             <Input
               value={form.publicIdentifier}
               onChange={(e) => setForm({ ...form, publicIdentifier: e.target.value })}
             />
           </Field>
-          <Field label="API key" error={fieldErrors.apiKey}>
+          <Field label={isDimePay ? "Client key" : "API key"} error={fieldErrors.apiKey}>
             <Input
               type="password"
               placeholder={account ? "Enter a new key to replace the one on file" : ""}
@@ -142,6 +162,20 @@ export default function PaymentPage() {
               onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
             />
           </Field>
+          {isDimePay && (
+            <Field label="Signing secret" error={fieldErrors.apiSecret}>
+              <Input
+                type="password"
+                placeholder={account?.maskedApiSecret ? "Enter a new secret to replace the one on file" : ""}
+                value={form.apiSecret}
+                onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                From your DimePay dashboard's Developer section, alongside your client key. Used only to sign
+                requests — never sent to anyone directly.
+              </p>
+            </Field>
+          )}
           <div>
             <Button type="submit" disabled={saving}>
               {saving ? "Saving…" : account ? "Update connection" : "Connect"}

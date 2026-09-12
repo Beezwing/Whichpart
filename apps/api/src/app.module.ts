@@ -9,6 +9,7 @@ import { CommonModule } from './common/common.module';
 import { StorageModule } from './storage/storage.module';
 import { AiModule } from './ai/ai.module';
 import { EmailModule } from './email/email.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AuthModule } from './auth/auth.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { AdminModule } from './admin/admin.module';
@@ -33,6 +34,7 @@ import { OrdersModule } from './orders/orders.module';
     StorageModule,
     AiModule,
     EmailModule,
+    PaymentsModule,
     AuthModule,
     SuppliersModule,
     AdminModule,
