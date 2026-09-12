@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { documentTypes, updateSupplierProfileSchema } from "@autoparts/shared";
@@ -9,7 +9,7 @@ import { useAuth } from "../../lib/auth-context";
 import { Alert, Badge, Button, Card, Field, Input, Textarea } from "../../components/ui";
 import { SupplierTabs } from "../../components/supplier-tabs";
 import { ProductTour } from "../../components/product-tour";
-import { SUPPLIER_TOUR_ID, SUPPLIER_TOUR_STEPS } from "../../lib/tours";
+import { SUPPLIER_TOUR_ID, SUPPLIER_TOUR_STEPS, hasSeenTourLocally } from "../../lib/tours";
 
 interface SupplierDocument {
   id: string;
@@ -297,9 +297,16 @@ function ApprovedOverview({
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const [showTour, setShowTour] = useState(false);
+  const tourChecked = useRef(false);
 
   useEffect(() => {
-    if (user && !(user.toursSeen ?? []).includes(SUPPLIER_TOUR_ID)) {
+    // Decide once per mount: finishing the tour calls refresh(), which
+    // hands back a new `user` object and would otherwise re-run this check
+    // and reopen the tour if the "mark as seen" call didn't persist (e.g.
+    // a stale API deploy) -- see product-tour.tsx.
+    if (!user || tourChecked.current) return;
+    tourChecked.current = true;
+    if (!(user.toursSeen ?? []).includes(SUPPLIER_TOUR_ID) && !hasSeenTourLocally(SUPPLIER_TOUR_ID)) {
       setShowTour(true);
     }
   }, [user]);

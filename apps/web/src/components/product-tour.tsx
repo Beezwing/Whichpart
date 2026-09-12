@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
+import { markTourSeenLocally } from "../lib/tours";
 
 export interface TourStep {
   selector: string;
@@ -92,10 +93,14 @@ export function ProductTour({
   async function finish() {
     if (finishing.current) return;
     finishing.current = true;
+    // Set the local flag first and unconditionally: this is what actually
+    // keeps the tour dismissed across reloads whenever the server call
+    // below fails or the API deploy doesn't have this route yet.
+    markTourSeenLocally(tourId);
     try {
       await api.post(`/auth/tours/${tourId}/seen`);
     } catch {
-      /* best-effort -- worst case the tour offers itself again next visit */
+      /* best-effort -- the local flag above already covers this device */
     }
     await refresh();
     onDone();

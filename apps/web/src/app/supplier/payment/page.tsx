@@ -171,7 +171,7 @@ export default function PaymentPage() {
                 onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
               />
               <p className="mt-1 text-xs text-[var(--muted)]">
-                From your DimePay dashboard's Developer section, alongside your client key. Used only to sign
+                From your DimePay dashboard&apos;s Developer section, alongside your client key. Used only to sign
                 requests — never sent to anyone directly.
               </p>
             </Field>

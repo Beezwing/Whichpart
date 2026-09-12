@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { changePasswordSchema } from "@autoparts/shared";
 import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { Alert, Button, Card, Field, Input } from "../../components/ui";
 import { ProductTour } from "../../components/product-tour";
-import { CUSTOMER_TOUR_ID, CUSTOMER_TOUR_STEPS } from "../../lib/tours";
+import { CUSTOMER_TOUR_ID, CUSTOMER_TOUR_STEPS, hasSeenTourLocally } from "../../lib/tours";
 
 const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Customer",
@@ -25,13 +25,21 @@ export default function AccountPage() {
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const tourChecked = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (user?.role === "CUSTOMER" && !(user.toursSeen ?? []).includes(CUSTOMER_TOUR_ID)) {
+    // Decide once per mount -- see the matching comment in supplier/page.tsx.
+    if (!user || tourChecked.current) return;
+    tourChecked.current = true;
+    if (
+      user.role === "CUSTOMER" &&
+      !(user.toursSeen ?? []).includes(CUSTOMER_TOUR_ID) &&
+      !hasSeenTourLocally(CUSTOMER_TOUR_ID)
+    ) {
       setShowTour(true);
     }
   }, [user]);

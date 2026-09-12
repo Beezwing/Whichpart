@@ -6,6 +6,33 @@ import type { TourStep } from "../components/product-tour";
 export const CUSTOMER_TOUR_ID = "customer-v1" as const;
 export const SUPPLIER_TOUR_ID = "supplier-v1" as const;
 
+/**
+ * The server is the source of truth for "seen" (POST /auth/tours/:id/seen,
+ * reflected back on user.toursSeen), but that round trip can be behind an
+ * API deploy that hasn't shipped yet, or can just fail. localStorage is a
+ * same-device fallback so dismissing a tour sticks across reloads even
+ * then -- it's checked in addition to, never instead of, the server flag.
+ */
+function localTourKey(tourId: string): string {
+  return `autoparts:tour-seen:${tourId}`;
+}
+
+export function hasSeenTourLocally(tourId: string): boolean {
+  try {
+    return localStorage.getItem(localTourKey(tourId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markTourSeenLocally(tourId: string): void {
+  try {
+    localStorage.setItem(localTourKey(tourId), "1");
+  } catch {
+    /* private browsing / storage disabled -- server flag is still tried */
+  }
+}
+
 export const CUSTOMER_TOUR_STEPS: TourStep[] = [
   {
     selector: '[data-tour="nav-search"]',
