@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { brand } from "@autoparts/shared";
 import { useAuth } from "../lib/auth-context";
 import { useCart } from "../lib/cart";
@@ -18,6 +19,32 @@ export function NavBar() {
   const { user, loading, logout } = useAuth();
   const { itemCount } = useCart();
   const router = useRouter();
+  const navRef = useRef<HTMLElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // The nav below can be narrower than its content (see the comment on it) --
+  // on a phone, that regularly hides real actions like "Sign up" with no
+  // scrollbar to hint they exist. These fades are the visible cue that
+  // there's more to swipe to, on whichever side has it.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const update = () => {
+      setCanScrollLeft(el.scrollLeft > 1);
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    };
+    update();
+    el.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+    };
+  }, [loading, user]);
 
   return (
     <header className="brand-header border-b border-[var(--border)]">
@@ -35,7 +62,11 @@ export function NavBar() {
             horizontal-scroll bug this replaced. Nothing here is ever
             display:none, so the guided tour's getBoundingClientRect/
             scrollIntoView still finds every target on a narrow screen too. */}
-        <nav className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto text-sm [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1">
+        <div className="relative min-w-0 flex-1">
+          <nav
+            ref={navRef}
+            className="flex min-w-0 items-center gap-3 overflow-x-auto text-sm [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1"
+          >
           <Link
             href="/search"
             data-tour="nav-search"
@@ -107,7 +138,20 @@ export function NavBar() {
               </Link>
             </>
           )}
-        </nav>
+          </nav>
+          {canScrollLeft && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-[var(--secondary)] to-transparent"
+            />
+          )}
+          {canScrollRight && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[var(--secondary)] to-transparent"
+            />
+          )}
+        </div>
       </div>
     </header>
   );
