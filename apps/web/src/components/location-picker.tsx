@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { Input } from "./ui";
+import { Button, Input } from "./ui";
 
 // Jamaica-wide default so the map has somewhere sensible to sit before a
 // pin is dropped, regardless of which parish the supplier/customer is in.
@@ -30,6 +30,8 @@ export function LocationPicker({ address, onAddressChange, pin, onPinChange }: L
   const [scriptLoaded, setScriptLoaded] = useState(
     typeof window !== "undefined" && !!window.google?.maps,
   );
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
 
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -49,6 +51,54 @@ export function LocationPicker({ address, onAddressChange, pin, onPinChange }: L
     onPinChangeRef.current = onPinChange;
   });
 
+  // Shared by a map click, a marker drag, and the "use my current location"
+  // button below -- defined once here (not inside the map-setup effect) so
+  // all three can call the same logic against whatever map/marker exist
+  // right now, read live off refs.
+  function place(lat: number, lng: number) {
+    const marker = markerRef.current;
+    const map = mapRef.current;
+    if (!marker || !map) return;
+    marker.setVisible(true);
+    marker.setPosition({ lat, lng });
+    map.panTo({ lat, lng });
+    if ((map.getZoom() ?? 0) < 14) map.setZoom(16);
+    onPinChangeRef.current({ lat, lng });
+    if (!addressRef.current.trim()) {
+      try {
+        geocoderRef.current?.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && results?.[0]) onAddressChangeRef.current(results[0].formatted_address);
+        });
+      } catch {
+        /* geocoding not enabled for this key — the typed address still works */
+      }
+    }
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setLocateError("Your browser doesn't support location access.");
+      return;
+    }
+    setLocating(true);
+    setLocateError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        place(pos.coords.latitude, pos.coords.longitude);
+        setLocating(false);
+      },
+      (err) => {
+        setLocateError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access was denied — drop a pin on the map instead."
+            : "Couldn't get your location — drop a pin on the map instead.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
   useEffect(() => {
     if (!scriptLoaded || !mapDivRef.current || mapRef.current) return;
 
@@ -63,21 +113,6 @@ export function LocationPicker({ address, onAddressChange, pin, onPinChange }: L
     const marker = new google.maps.Marker({ map, position: start, draggable: true });
     markerRef.current = marker;
     if (!pin) marker.setVisible(false);
-
-    function place(lat: number, lng: number) {
-      marker.setVisible(true);
-      marker.setPosition({ lat, lng });
-      onPinChangeRef.current({ lat, lng });
-      if (!addressRef.current.trim()) {
-        try {
-          geocoderRef.current?.geocode({ location: { lat, lng } }, (results, status) => {
-            if (status === "OK" && results?.[0]) onAddressChangeRef.current(results[0].formatted_address);
-          });
-        } catch {
-          /* geocoding not enabled for this key — the typed address still works */
-        }
-      }
-    }
 
     map.addListener("click", (e: google.maps.MapMouseEvent) => {
       if (e.latLng) place(e.latLng.lat(), e.latLng.lng());
@@ -105,9 +140,21 @@ export function LocationPicker({ address, onAddressChange, pin, onPinChange }: L
       />
       {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
         <>
-          <p className="text-xs text-[var(--muted)]">
-            {pin ? "Pin dropped ✓ — drag it to adjust." : "Tap the map to drop a pin at the exact delivery spot."}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-[var(--muted)]">
+              {pin ? "Pin dropped ✓ — drag it to adjust." : "Tap the map to drop a pin at the exact delivery spot."}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!scriptLoaded || locating}
+              onClick={useCurrentLocation}
+              className="shrink-0 whitespace-nowrap text-xs"
+            >
+              {locating ? "Locating…" : "📍 Use my location"}
+            </Button>
+          </div>
+          {locateError && <p className="text-xs text-red-600">{locateError}</p>}
           <div ref={mapDivRef} className="h-56 w-full rounded-lg border border-[var(--border)]" />
         </>
       )}
