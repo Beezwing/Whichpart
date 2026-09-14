@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { AvailabilityRequestInput } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { InventoryService } from '../common/inventory.service';
 
 /**
  * Everything here is public and unauthenticated (Rule 10) — but every
@@ -10,7 +12,10 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class MarketplaceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventory: InventoryService,
+  ) {}
 
   async getProduct(id: string) {
     const product = await this.prisma.product.findFirst({
@@ -67,5 +72,25 @@ export class MarketplaceService {
     });
     if (!supplier) throw new NotFoundException('Supplier not found.');
     return supplier;
+  }
+
+  /**
+   * Per-location stock check for a batch of items from one supplier's cart
+   * -- lets checkout default to a location that can actually fulfill the
+   * order, and show a specific warning about whichever one the customer
+   * has selected, before they ever submit the order itself.
+   */
+  async getAvailability(supplierId: string, input: AvailabilityRequestInput) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, verificationStatus: 'APPROVED' },
+      select: { locations: { select: { id: true } } },
+    });
+    if (!supplier) throw new NotFoundException('Supplier not found.');
+
+    const locations = await this.inventory.getAvailabilityByLocation(
+      input.items,
+      supplier.locations.map((l) => l.id),
+    );
+    return { locations };
   }
 }

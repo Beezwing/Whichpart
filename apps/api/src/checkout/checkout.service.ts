@@ -14,6 +14,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import { CryptoService } from '../common/crypto.service';
+import { InventoryService } from '../common/inventory.service';
 import { EmailService } from '../email/email.service';
 import { DimePayService } from '../payments/dimepay.service';
 
@@ -31,6 +32,7 @@ export class CheckoutService {
     private readonly crypto: CryptoService,
     private readonly email: EmailService,
     private readonly dimePay: DimePayService,
+    private readonly inventory: InventoryService,
   ) {}
 
   private async requireCustomerId(userId: string): Promise<string> {
@@ -43,36 +45,8 @@ export class CheckoutService {
     return customer.id;
   }
 
-  /**
-   * Available stock is never a stored counter — it's computed fresh every
-   * time as on-hand minus quantities on other orders that are still
-   * AWAITING_PAYMENT and unexpired (Section 34). This makes reservation
-   * expiry self-cleaning: once paymentExpiresAt passes, that order simply
-   * stops counting, with no cleanup job required.
-   */
-  private async getAvailableQuantity(
-    productId: string,
-    locationId: string,
-  ): Promise<number> {
-    const inventory = await this.prisma.inventoryLocation.findUnique({
-      where: { productId_locationId: { productId, locationId } },
-    });
-    if (!inventory) return 0;
-
-    const reserved = await this.prisma.orderItem.aggregate({
-      where: {
-        productId,
-        order: {
-          locationId,
-          status: 'AWAITING_PAYMENT',
-          paymentExpiresAt: { gt: new Date() },
-        },
-      },
-      _sum: { quantity: true },
-    });
-
-    return inventory.quantity - (reserved._sum.quantity ?? 0);
-  }
+  // Stock availability itself now lives in InventoryService (also used by
+  // the pre-checkout availability check) -- see its own doc comment.
 
   async checkout(userId: string, input: CheckoutRequestInput) {
     const customerId = await this.requireCustomerId(userId);
@@ -170,7 +144,7 @@ export class CheckoutService {
     // deliberately don't auto-split across locations (Section 34) — a
     // shortfall here is a clear, specific error, not a silent guess.
     for (const item of items) {
-      const available = await this.getAvailableQuantity(
+      const available = await this.inventory.getAvailableQuantity(
         item.productId,
         location.id,
       );

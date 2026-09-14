@@ -34,3 +34,14 @@ export const checkoutRequestSchema = z.object({
   supplierFulfillment: z.array(supplierFulfillmentSchema).min(1),
 });
 export type CheckoutRequestInput = z.infer<typeof checkoutRequestSchema>;
+
+/**
+ * Checked against one supplier's locations before the customer ever hits
+ * "place order" -- so checkout can default to a location that actually has
+ * their cart in stock, and warn them immediately if none do, instead of
+ * that only surfacing as a failure after they've filled in delivery details.
+ */
+export const availabilityRequestSchema = z.object({
+  items: z.array(checkoutItemSchema).min(1),
+});
+export type AvailabilityRequestInput = z.infer<typeof availabilityRequestSchema>;

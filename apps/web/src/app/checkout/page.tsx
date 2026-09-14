@@ -38,6 +38,17 @@ interface SupplierFulfillment {
   deliveryPin: { lat: number; lng: number } | null;
 }
 
+interface AvailabilityShortage {
+  productId: string;
+  needed: number;
+  available: number;
+}
+interface LocationAvailability {
+  locationId: string;
+  canFulfillAll: boolean;
+  shortages: AvailabilityShortage[];
+}
+
 interface OrderResult {
   orderId: string;
   orderNumber: string;
@@ -52,6 +63,7 @@ export default function CheckoutPage() {
   const { items, clear } = useCart();
 
   const [suppliers, setSuppliers] = useState<Record<string, SupplierProfile>>({});
+  const [availability, setAvailability] = useState<Record<string, LocationAvailability[]>>({});
   const [fulfillment, setFulfillment] = useState<Record<string, SupplierFulfillment>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,14 +83,43 @@ export default function CheckoutPage() {
       return;
     }
     void Promise.all(supplierIds.map((id) => api.get<SupplierProfile>(`/marketplace/suppliers/${id}`))).then(
-      (profiles) => {
+      async (profiles) => {
         const map = Object.fromEntries(profiles.map((p) => [p.id, p]));
         setSuppliers(map);
+
+        // Checked up front so checkout can default to (and warn about) a
+        // location that actually has this cart's items in stock, instead
+        // of that only surfacing as a failure after placing the order.
+        const availabilityEntries = await Promise.all(
+          profiles.map(async (p) => {
+            const supplierItems = items
+              .filter((i) => i.supplierId === p.id)
+              .map((i) => ({ productId: i.productId, quantity: i.quantity }));
+            try {
+              const res = await api.post<{ locations: LocationAvailability[] }>(
+                `/marketplace/suppliers/${p.id}/availability`,
+                { items: supplierItems },
+              );
+              return [p.id, res.locations] as const;
+            } catch {
+              // Best-effort — checkout still works without this, it just
+              // can't pick a smarter default or warn ahead of time.
+              return [p.id, []] as const;
+            }
+          }),
+        );
+        const availabilityMap = Object.fromEntries(availabilityEntries);
+        setAvailability(availabilityMap);
+
         setFulfillment((prev) => {
           const next = { ...prev };
           for (const p of profiles) {
             if (next[p.id]) continue;
-            const firstLocation = p.locations[0];
+            const locationsAvailability: LocationAvailability[] = availabilityMap[p.id] ?? [];
+            const fullyStocked = p.locations.find(
+              (l) => locationsAvailability.find((a) => a.locationId === l.id)?.canFulfillAll,
+            );
+            const firstLocation = fullyStocked ?? p.locations[0];
             next[p.id] = {
               locationId: firstLocation?.id ?? "",
               deliveryMethod: firstLocation?.pickupAvailable ? "PICKUP" : "SUPPLIER_DELIVERY",
@@ -122,6 +163,14 @@ export default function CheckoutPage() {
 
   function itemsFor(supplierId: string): CartItem[] {
     return items.filter((i) => i.supplierId === supplierId);
+  }
+
+  // Stock was already checked per-location when the page loaded (see the
+  // availability fetch above) — this just looks up whether the CURRENTLY
+  // selected location has a shortage, so switching the dropdown updates
+  // the warning instantly with no extra request.
+  function shortagesFor(supplierId: string, locationId: string): AvailabilityShortage[] {
+    return availability[supplierId]?.find((a) => a.locationId === locationId)?.shortages ?? [];
   }
 
   // Client-side only — a courtesy so the customer sees this before they
@@ -229,10 +278,14 @@ export default function CheckoutPage() {
   // A supplier with a freight item and no pickup at the chosen location is
   // a genuine dead end for this checkout flow — better to say so plainly
   // than let the customer hit a server error after filling out the form.
-  const blockedSuppliers = supplierIds.filter((supplierId) => {
+  const freightBlockedSuppliers = supplierIds.filter((supplierId) => {
     const location = suppliers[supplierId]?.locations.find((l) => l.id === fulfillment[supplierId]?.locationId);
     return hasFreightItem(supplierId) && !location?.pickupAvailable;
   });
+  const stockBlockedSuppliers = supplierIds.filter(
+    (supplierId) => shortagesFor(supplierId, fulfillment[supplierId]?.locationId ?? "").length > 0,
+  );
+  const blockedSuppliers = [...new Set([...freightBlockedSuppliers, ...stockBlockedSuppliers])];
 
   return (
     <main className="mx-auto max-w-2xl flex-1 px-6 py-12">
@@ -278,6 +331,24 @@ export default function CheckoutPage() {
                     ))}
                   </select>
                 </label>
+
+                {(() => {
+                  const shortages = shortagesFor(supplierId, f.locationId);
+                  if (shortages.length === 0) return null;
+                  const cartItems = itemsFor(supplierId);
+                  return (
+                    <Alert variant="error">
+                      Not enough stock at {location?.name ?? "this location"}:{" "}
+                      {shortages
+                        .map((s) => {
+                          const name = cartItems.find((i) => i.productId === s.productId)?.name ?? "an item";
+                          return `${name} (${s.available} available, ${s.needed} in cart)`;
+                        })
+                        .join(", ")}
+                      . Pick a different location above, or reduce the quantity in your cart.
+                    </Alert>
+                  );
+                })()}
 
                 <div className="flex gap-4 text-sm">
                   {location?.pickupAvailable && (
@@ -356,12 +427,12 @@ export default function CheckoutPage() {
       </div>
 
       <div className="mt-6">
-        {blockedSuppliers.length > 0 && (
+        {freightBlockedSuppliers.length > 0 && (
           <div className="mb-3">
             <Alert variant="error">
-              {blockedSuppliers.map((id) => suppliers[id]?.tradingName).join(", ")} can&apos;t fulfill this order as-is
-              — no pickup option and delivery needs a manual quote for a freight item. Message the supplier to
-              arrange it before ordering.
+              {freightBlockedSuppliers.map((id) => suppliers[id]?.tradingName).join(", ")} can&apos;t fulfill this
+              order as-is — no pickup option and delivery needs a manual quote for a freight item. Message the
+              supplier to arrange it before ordering.
             </Alert>
           </div>
         )}
