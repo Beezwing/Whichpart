@@ -16,7 +16,17 @@ export class ApiError extends Error {
 
 async function parseErrorMessage(res: Response): Promise<{ message: string; issues?: { path: string; message: string }[] }> {
   try {
-    const body = (await res.json()) as { message?: string | string[]; issues?: { path: string; message: string }[] };
+    const body = (await res.json()) as { statusCode?: number; message?: string | string[]; issues?: { path: string; message: string }[] };
+    // Every error our own NestJS API sends is shaped {statusCode, message, ...}
+    // (Nest's default HttpException format). A JSON body without statusCode
+    // didn't come from our API at all -- it's an infrastructure error page
+    // (e.g. the host the API runs on being down) that happens to also be
+    // JSON with its own unrelated `message` field. Showing that text
+    // directly to a customer leaks internal details and means nothing to
+    // them, so it gets the same generic fallback as an unparseable body.
+    if (typeof body.statusCode !== "number") {
+      return { message: "Something went wrong. Please try again." };
+    }
     const message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
     return { message: message ?? "Something went wrong. Please try again.", issues: body.issues };
   } catch {
