@@ -140,60 +140,61 @@ model Customer {
 // ---------- Supplier ----------
 
 model Supplier {
-  id                        String                     @id @default(uuid())
-  legalBusinessName         String
-  tradingName               String
-  businessType              String
-  businessRegistrationNumber String?
-  physicalAddress           String
-  phone                     String
-  email                     String
-  website                   String?
+  id                           String                     @id @default(uuid())
+  legalBusinessName            String
+  tradingName                  String
+  businessType                 String
+  businessRegistrationNumber   String?
+  physicalAddress              String
+  phone                        String
+  email                        String
+  website                      String?
   authorizedRepresentativeName String
-  description               String?
-  verificationStatus        SupplierVerificationStatus @default(DRAFT)
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
+  description                  String?
+  verificationStatus           SupplierVerificationStatus @default(DRAFT)
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
 
-  users          SupplierUser[]
-  verifications  SupplierVerification[]
-  locations      SupplierLocation[]
-  subscriptions  Subscription[]
-  products       Product[]
-  orders         Order[]
-  reviews        Review[]
-  conversations  Conversation[]
-  promotions     Promotion[]
-  paymentAccount SupplierPaymentAccount?
-  wishlistedBy   Wishlist[]
+  users             SupplierUser[]
+  verifications     SupplierVerification[]
+  locations         SupplierLocation[]
+  subscriptions     Subscription[]
+  products          Product[]
+  orders            Order[]
+  reviews           Review[]
+  conversations     Conversation[]
+  promotions        Promotion[]
+  paymentAccount    SupplierPaymentAccount?
+  quickBooksAccount SupplierQuickBooksAccount?
+  wishlistedBy      Wishlist[]
 
   @@index([verificationStatus])
 }
 
 model SupplierUser {
-  id         String   @id @default(uuid())
+  id         String            @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplier   Supplier          @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   locationId String?
   location   SupplierLocation? @relation(fields: [locationId], references: [id])
-  createdAt  DateTime @default(now())
+  createdAt  DateTime          @default(now())
 
   @@unique([userId, supplierId])
   @@index([supplierId])
 }
 
 model SupplierVerification {
-  id             String                     @id @default(uuid())
-  supplierId     String
-  supplier       Supplier                   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  status         SupplierVerificationStatus
-  submittedAt    DateTime?
-  reviewedAt     DateTime?
+  id               String                     @id @default(uuid())
+  supplierId       String
+  supplier         Supplier                   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  status           SupplierVerificationStatus
+  submittedAt      DateTime?
+  reviewedAt       DateTime?
   reviewedByUserId String?
-  internalNotes  String?
-  createdAt      DateTime                   @default(now())
+  internalNotes    String?
+  createdAt        DateTime                   @default(now())
 
   documents SupplierDocument[]
 
@@ -201,12 +202,12 @@ model SupplierVerification {
 }
 
 model SupplierDocument {
-  id             String                @id @default(uuid())
+  id             String               @id @default(uuid())
   verificationId String
-  verification   SupplierVerification  @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  verification   SupplierVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
   documentType   String
   fileUrl        String
-  uploadedAt     DateTime              @default(now())
+  uploadedAt     DateTime             @default(now())
 }
 
 model SupplierLocation {
@@ -236,20 +237,43 @@ model SupplierLocation {
 // needed to create a payment session on the supplier's behalf; secrets are
 // encrypted at rest and never sent to any frontend.
 model SupplierPaymentAccount {
-  id                String              @id @default(uuid())
-  supplierId        String              @unique
-  supplier          Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  provider          PaymentProviderType
-  status            String              @default("NOT_CONNECTED") // NOT_CONNECTED | PENDING | CONNECTED | ERROR | SUSPENDED
-  encryptedApiKey   String?
+  id                 String              @id @default(uuid())
+  supplierId         String              @unique
+  supplier           Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  provider           PaymentProviderType
+  status             String              @default("NOT_CONNECTED") // NOT_CONNECTED | PENDING | CONNECTED | ERROR | SUSPENDED
+  encryptedApiKey    String?
   // DimePay needs two secrets: a client_key (sent as a request header,
   // stored in encryptedApiKey above) and a separate signing secret used
   // only to sign the JWT payload of every request, never transmitted.
   // Nullable/unused by providers that only need one credential.
   encryptedApiSecret String?
-  publicIdentifier  String?
-  connectedAt       DateTime?
-  updatedAt         DateTime            @updatedAt
+  publicIdentifier   String?
+  connectedAt        DateTime?
+  updatedAt          DateTime            @updatedAt
+}
+
+// One supplier's QuickBooks Online connection. Inventory sync is two-way
+// (Section: QuickBooks sync) -- pushed on every Which Part? quantity change,
+// pulled on every QuickBooks webhook notification -- so both access and
+// refresh tokens are kept current here, encrypted the same way payment
+// credentials are (Section 12).
+model SupplierQuickBooksAccount {
+  id                    String    @id @default(uuid())
+  supplierId            String    @unique
+  supplier              Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  realmId               String
+  encryptedAccessToken  String
+  encryptedRefreshToken String
+  accessTokenExpiresAt  DateTime
+  refreshTokenExpiresAt DateTime
+  // Which of the supplier's own locations absorbs the difference when a
+  // QuickBooks-side quantity change doesn't match the sum Which Part? has
+  // on file -- QuickBooks itself has no concept of our multiple locations.
+  primaryLocationId     String?
+  connectedAt           DateTime  @default(now())
+  lastSyncedAt          DateTime?
+  lastSyncError         String?
 }
 
 // ---------- Subscriptions (supplier -> marketplace, Section 58/60) ----------
@@ -267,17 +291,17 @@ model SubscriptionPlan {
 }
 
 model Subscription {
-  id               String             @id @default(uuid())
-  supplierId       String
-  supplier         Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  planId           String
-  plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
-  status           SubscriptionStatus @default(TRIAL)
-  trialEndsAt      DateTime?
-  currentPeriodEnd DateTime?
+  id                String             @id @default(uuid())
+  supplierId        String
+  supplier          Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status            SubscriptionStatus @default(TRIAL)
+  trialEndsAt       DateTime?
+  currentPeriodEnd  DateTime?
   gracePeriodEndsAt DateTime?
-  cancelledAt      DateTime?
-  createdAt        DateTime           @default(now())
+  cancelledAt       DateTime?
+  createdAt         DateTime           @default(now())
 
   @@index([supplierId])
   @@index([status])
@@ -304,8 +328,8 @@ model Brand {
 }
 
 model Make {
-  id   String  @id @default(uuid())
-  name String  @unique
+  id   String @id @default(uuid())
+  name String @unique
 
   models Model[]
 }
@@ -316,7 +340,7 @@ model Model {
   make   Make   @relation(fields: [makeId], references: [id], onDelete: Cascade)
   name   String
 
-  engines        Engine[]
+  engines         Engine[]
   compatibilities VehicleCompatibility[]
 
   @@unique([makeId, name])
@@ -333,13 +357,13 @@ model Engine {
 }
 
 model VehicleCompatibility {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   modelId   String?
-  model     Model?   @relation(fields: [modelId], references: [id])
+  model     Model?  @relation(fields: [modelId], references: [id])
   engineId  String?
-  engine    Engine?  @relation(fields: [engineId], references: [id])
+  engine    Engine? @relation(fields: [engineId], references: [id])
   yearFrom  Int?
   yearTo    Int?
   notes     String?
@@ -354,40 +378,46 @@ model VehicleCompatibility {
 // categorization service, never by the supplier-facing product endpoints,
 // and vice versa.
 model Product {
-  id                     String            @id @default(uuid())
+  id                     String           @id @default(uuid())
   supplierId             String
-  supplier               Supplier          @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplier               Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   sku                    String
   name                   String
   description            String?
   categoryId             String?
-  category               Category?         @relation(fields: [categoryId], references: [id])
+  category               Category?        @relation(fields: [categoryId], references: [id])
   brandId                String?
-  brand                  Brand?            @relation(fields: [brandId], references: [id])
+  brand                  Brand?           @relation(fields: [brandId], references: [id])
   condition              ProductCondition
-  price                  Decimal           @db.Decimal(12, 2)
-  currency               String            @default("JMD")
+  price                  Decimal          @db.Decimal(12, 2)
+  currency               String           @default("JMD")
   oemPartNumber          String?
   manufacturerPartNumber String?
-  isActive               Boolean           @default(true)
+  isActive               Boolean          @default(true)
   // Oversized/heavy items (complete engines, engine blocks) that a flat
   // delivery zone fee can't safely cover — checkout blocks
   // SUPPLIER_DELIVERY for these and points the customer to pickup or a
   // manual quote from the supplier instead (see checkout.service.ts).
-  requiresFreightQuote   Boolean           @default(false)
+  requiresFreightQuote   Boolean          @default(false)
   // AI-suggested fields only — never authoritative, always supplier-approved
   aiSuggestedCategoryId  String?
   aiSuggestedKeywords    String[]
   aiCleanedDescription   String?
-  aiSuggestionApproved   Boolean           @default(false)
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  aiSuggestionApproved   Boolean          @default(false)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
   images          ProductImage[]
   inventory       InventoryLocation[]
   compatibilities VehicleCompatibility[]
   orderItems      OrderItem[]
   wishlistedBy    Wishlist[]
+
+  // Set once a supplier matches this product to a QuickBooks Item -- qbSyncToken
+  // is QuickBooks' own optimistic-concurrency stamp, required on every update
+  // request and bumped by QuickBooks after each one (Section: QuickBooks sync).
+  qbItemId    String?
+  qbSyncToken String?
 
   @@unique([supplierId, sku])
   @@index([oemPartNumber])
@@ -406,16 +436,16 @@ model ProductImage {
 }
 
 model InventoryLocation {
-  id                  String           @id @default(uuid())
-  productId           String
-  product             Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  locationId          String
-  location            SupplierLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  quantity            Int              @default(0)
-  reservedQuantity    Int              @default(0)
-  lowStockThreshold   Int?
+  id                     String           @id @default(uuid())
+  productId              String
+  product                Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId             String
+  location               SupplierLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity               Int              @default(0)
+  reservedQuantity       Int              @default(0)
+  lowStockThreshold      Int?
   criticalStockThreshold Int?
-  updatedAt           DateTime         @updatedAt
+  updatedAt              DateTime         @updatedAt
 
   @@unique([productId, locationId])
 }
@@ -423,21 +453,21 @@ model InventoryLocation {
 // ---------- Customer ----------
 
 model SavedVehicle {
-  id             String   @id @default(uuid())
-  customerId     String
-  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  nickname       String?
-  make           String
-  model          String
-  year           Int
-  vin            String?
-  chassisNumber  String?
-  engineNumber   String?
-  engineCode     String?
-  transmission   String?
-  mileage        Int?
-  notes          String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(uuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  nickname      String?
+  make          String
+  model         String
+  year          Int
+  vin           String?
+  chassisNumber String?
+  engineNumber  String?
+  engineCode    String?
+  transmission  String?
+  mileage       Int?
+  notes         String?
+  createdAt     DateTime @default(now())
 
   @@index([customerId])
 }
@@ -461,27 +491,27 @@ model Wishlist {
 // ---------- Orders & payments ----------
 
 model Order {
-  id               String               @id @default(uuid())
-  orderNumber      String               @unique
-  customerId       String
-  customer         Customer             @relation(fields: [customerId], references: [id])
-  supplierId       String
-  supplier         Supplier             @relation(fields: [supplierId], references: [id])
-  locationId       String?
-  location         SupplierLocation?    @relation(fields: [locationId], references: [id])
-  status           OrderStatus          @default(AWAITING_PAYMENT)
-  paymentStatus    PaymentStatus        @default(PENDING)
+  id                String               @id @default(uuid())
+  orderNumber       String               @unique
+  customerId        String
+  customer          Customer             @relation(fields: [customerId], references: [id])
+  supplierId        String
+  supplier          Supplier             @relation(fields: [supplierId], references: [id])
+  locationId        String?
+  location          SupplierLocation?    @relation(fields: [locationId], references: [id])
+  status            OrderStatus          @default(AWAITING_PAYMENT)
+  paymentStatus     PaymentStatus        @default(PENDING)
   // Stock is "reserved" implicitly: available quantity is computed as
   // on-hand minus items on orders that are still AWAITING_PAYMENT and
   // not yet expired (Section 34). No background job needed to release a
   // reservation — an expired order just stops counting on the next read.
-  paymentExpiresAt DateTime?
-  subtotal         Decimal              @db.Decimal(12, 2)
-  deliveryFee      Decimal              @db.Decimal(12, 2) @default(0)
-  total            Decimal              @db.Decimal(12, 2)
-  currency         String               @default("JMD")
-  deliveryProvider DeliveryProviderType
-  deliveryAddress  String?
+  paymentExpiresAt  DateTime?
+  subtotal          Decimal              @db.Decimal(12, 2)
+  deliveryFee       Decimal              @default(0) @db.Decimal(12, 2)
+  total             Decimal              @db.Decimal(12, 2)
+  currency          String               @default("JMD")
+  deliveryProvider  DeliveryProviderType
+  deliveryAddress   String?
   // GPS coordinates are private order data (Rule 17) — never exposed via
   // any public product/supplier endpoint, only to the customer, the
   // assigned supplier, and whoever fulfills the delivery.
@@ -489,15 +519,15 @@ model Order {
   deliveryLongitude Float?
   recipientName     String?
   recipientPhone    String?
-  customerNotes    String?
-  supplierNotes    String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  customerNotes     String?
+  supplierNotes     String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-  items     OrderItem[]
-  payments  Payment[]
-  delivery  Delivery?
-  review    Review?
+  items    OrderItem[]
+  payments Payment[]
+  delivery Delivery?
+  review   Review?
 
   @@index([customerId])
   @@index([supplierId])
@@ -507,32 +537,32 @@ model Order {
 // Preserves the price the customer agreed to at purchase time (Rule 33) —
 // a later supplier price change never touches an existing order.
 model OrderItem {
-  id             String  @id @default(uuid())
-  orderId        String
-  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId      String
-  product        Product @relation(fields: [productId], references: [id])
-  skuSnapshot    String
-  nameSnapshot   String
+  id              String  @id @default(uuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+  skuSnapshot     String
+  nameSnapshot    String
   priceAtPurchase Decimal @db.Decimal(12, 2)
-  quantity       Int
+  quantity        Int
 
   @@index([orderId])
 }
 
 model Payment {
-  id                 String              @id @default(uuid())
-  orderId            String
-  order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  provider           PaymentProviderType
-  providerReference  String?
-  amount             Decimal             @db.Decimal(12, 2)
-  currency           String              @default("JMD")
-  status             PaymentStatus       @default(PENDING)
-  idempotencyKey     String              @unique
-  rawWebhookPayload  Json?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                String              @id @default(uuid())
+  orderId           String
+  order             Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider          PaymentProviderType
+  providerReference String?
+  amount            Decimal             @db.Decimal(12, 2)
+  currency          String              @default("JMD")
+  status            PaymentStatus       @default(PENDING)
+  idempotencyKey    String              @unique
+  rawWebhookPayload Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@index([orderId])
 }
@@ -574,14 +604,14 @@ model Review {
 }
 
 model Conversation {
-  id         String    @id @default(uuid())
+  id         String   @id @default(uuid())
   customerId String
-  customer   Customer  @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
   supplierId String
-  supplier   Supplier  @relation(fields: [supplierId], references: [id])
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
   productId  String?
   orderId    String?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime @default(now())
 
   messages Message[]
 
@@ -631,15 +661,15 @@ model Promotion {
 }
 
 model Ad {
-  id              String   @id @default(uuid())
-  title           String
-  imageUrl        String
-  destinationUrl  String
+  id               String   @id @default(uuid())
+  title            String
+  imageUrl         String
+  destinationUrl   String
   targetCategoryId String?
-  startDate       DateTime
-  endDate         DateTime
-  isActive        Boolean  @default(true)
-  priority        Int      @default(0)
+  startDate        DateTime
+  endDate          DateTime
+  isActive         Boolean  @default(true)
+  priority         Int      @default(0)
 }
 
 // Immutable audit trail (Section 55) — application code must only ever

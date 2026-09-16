@@ -5,7 +5,10 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true exposes req.rawBody -- needed only by the QuickBooks
+  // webhook, which must verify Intuit's signature against the exact bytes
+  // sent, not a re-serialized version of the parsed JSON.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   // Default CORP (same-origin) would block our own web app — a different

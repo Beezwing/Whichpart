@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import { StorageService } from '../storage/storage.service';
 import { AiCategorizationService } from '../ai/ai-categorization.service';
+import { QuickBooksService } from '../quickbooks/quickbooks.service';
 import {
   generateImportTemplate,
   parseImportWorkbook,
@@ -45,6 +46,7 @@ export class ProductsService {
     private readonly auditLog: AuditLogService,
     private readonly storage: StorageService,
     private readonly ai: AiCategorizationService,
+    private readonly quickbooks: QuickBooksService,
   ) {}
 
   private async requireSupplierId(userId: string): Promise<string> {
@@ -470,6 +472,13 @@ export class ProductsService {
     });
 
     await this.maybeSendStockAlert(productId, inventory);
+    // Fire-and-forget: a QuickBooks hiccup must never block the supplier's
+    // own inventory update from succeeding (Section: QuickBooks sync).
+    this.quickbooks.pushProductQuantity(productId).catch((err: unknown) => {
+      this.logger.warn(
+        `QuickBooks push failed for product ${productId}: ${String(err)}`,
+      );
+    });
     return inventory;
   }
 
@@ -773,6 +782,12 @@ export class ProductsService {
       }
 
       return product.id;
+    });
+
+    this.quickbooks.pushProductQuantity(productId).catch((err: unknown) => {
+      this.logger.warn(
+        `QuickBooks push failed for product ${productId}: ${String(err)}`,
+      );
     });
 
     // Never awaited here: with hundreds of rows in one file, blocking

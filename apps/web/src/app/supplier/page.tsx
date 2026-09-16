@@ -381,6 +381,7 @@ function ApprovedOverview({
         <SummaryLink href="/supplier/locations" label="Locations" />
         <SummaryLink href="/supplier/subscription" label="Subscription" />
         <SummaryLink href="/supplier/payment" label="Payment" />
+        <SummaryLink href="/supplier/quickbooks" label="QuickBooks" />
       </div>
 
       <Card>
