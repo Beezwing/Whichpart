@@ -146,13 +146,14 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         customer: true,
         supplierUsers: { include: { supplier: true } },
       },
     });
+    if (!user) throw new UnauthorizedException('Account no longer active.');
 
     return {
       id: user.id,
