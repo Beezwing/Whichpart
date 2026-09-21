@@ -18,6 +18,14 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super admin",
 };
 
+interface NotificationRow {
+  id: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export default function AccountPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -26,10 +34,24 @@ export default function AccountPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const tourChecked = useRef(false);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    void api
+      .get<NotificationRow[]>("/notifications/me")
+      .then(setNotifications)
+      .catch(() => undefined);
+  }, [user]);
+
+  async function markRead(id: string) {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    await api.post(`/notifications/me/${id}/read`).catch(() => undefined);
+  }
 
   useEffect(() => {
     // Decide once per mount -- see the matching comment in supplier/page.tsx.
@@ -97,6 +119,34 @@ export default function AccountPage() {
           </div>
         </dl>
       </Card>
+
+      {notifications.length > 0 && (
+        <Card className="mb-6">
+          <h2 className="mb-3 text-lg font-medium">Notifications</h2>
+          <ul className="flex flex-col gap-3">
+            {notifications.map((n) => (
+              <li
+                key={n.id}
+                className={`rounded-lg border border-[var(--border)] p-3 text-sm ${n.isRead ? "opacity-60" : ""}`}
+              >
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <p className="font-medium">{n.title}</p>
+                  {!n.isRead && (
+                    <button
+                      onClick={() => void markRead(n.id)}
+                      className="shrink-0 text-xs text-[var(--accent)] hover:underline"
+                    >
+                      Mark read
+                    </button>
+                  )}
+                </div>
+                <p className="text-[var(--muted)]">{n.body}</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">{new Date(n.createdAt).toLocaleString()}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-4 text-lg font-medium">Change password</h2>

@@ -44,6 +44,8 @@ export default function ProductPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [wishlisted, setWishlisted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [photoRequestStatus, setPhotoRequestStatus] = useState<"PENDING" | "FULFILLED" | null>(null);
+  const [requestingPhotos, setRequestingPhotos] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +66,30 @@ export default function ProductPage() {
       .then((w) => setWishlisted(w.products.some((p) => p.id === id)))
       .catch(() => undefined);
   }, [user, id]);
+
+  useEffect(() => {
+    if (!user || user.role !== "CUSTOMER" || !product || product.images.length > 0) return;
+    void api
+      .get<{ status: "PENDING" | "FULFILLED" } | null>(`/marketplace/products/${id}/photo-requests/me`)
+      .then((res) => setPhotoRequestStatus(res?.status ?? null))
+      .catch(() => undefined);
+  }, [user, id, product]);
+
+  async function requestPhotos() {
+    if (!user || user.role !== "CUSTOMER") {
+      setMessage("Log in as a customer to request photos.");
+      return;
+    }
+    setRequestingPhotos(true);
+    try {
+      await api.post(`/marketplace/products/${id}/photo-requests`);
+      setPhotoRequestStatus("PENDING");
+    } catch (err) {
+      setMessage(err instanceof ApiError ? err.message : "Couldn't send that request.");
+    } finally {
+      setRequestingPhotos(false);
+    }
+  }
 
   async function toggleWishlist() {
     if (!user || user.role !== "CUSTOMER") {
@@ -133,8 +159,15 @@ export default function ProductPage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">
-                No photo provided
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-[var(--muted)]">
+                <p>No photo provided</p>
+                {photoRequestStatus === "PENDING" ? (
+                  <p className="text-xs">Photos requested — we&apos;ll notify you once they&apos;re added.</p>
+                ) : (
+                  <Button variant="secondary" disabled={requestingPhotos} onClick={() => void requestPhotos()}>
+                    {requestingPhotos ? "Requesting…" : "Request photos"}
+                  </Button>
+                )}
               </div>
             )}
           </div>

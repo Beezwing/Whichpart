@@ -317,21 +317,156 @@ export class ProductsService {
 
   // ---------- Images (Section 13) ----------
 
+  private async createImageRecord(
+    productId: string,
+    imageCount: number,
+    file: { buffer: Buffer; originalname: string },
+  ) {
+    const key = await this.storage.save(file.buffer, file.originalname);
+    return this.prisma.productImage.create({
+      data: {
+        productId,
+        url: key,
+        isPrimary: imageCount === 0,
+        sortOrder: imageCount,
+      },
+    });
+  }
+
   async addImage(
     userId: string,
     productId: string,
     file: { buffer: Buffer; originalname: string },
   ) {
     const product = await this.requireOwnProduct(userId, productId);
-    const key = await this.storage.save(file.buffer, file.originalname);
-    const isFirst = product.images.length === 0;
-    return this.prisma.productImage.create({
-      data: {
-        productId,
-        url: key,
-        isPrimary: isFirst,
-        sortOrder: product.images.length,
+    return this.createImageRecord(productId, product.images.length, file);
+  }
+
+  /**
+   * Admin equivalent of addImage -- no ownership check, since this is for
+   * an admin fulfilling a customer's photo request by visiting the
+   * supplier and photographing the part themselves (Section: photo
+   * requests), not the supplier uploading their own listing photos.
+   * Uploading here also auto-fulfills every PENDING request on this
+   * product and notifies each requester -- the admin's only action is to
+   * upload the photo, there's no separate "mark fulfilled" step to forget.
+   */
+  async addImageAsAdmin(
+    productId: string,
+    file: { buffer: Buffer; originalname: string },
+  ) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: PRODUCT_INCLUDE,
+    });
+    if (!product) throw new NotFoundException('Product not found.');
+
+    const image = await this.createImageRecord(
+      productId,
+      product.images.length,
+      file,
+    );
+    await this.fulfillPhotoRequests(productId, product.name);
+    return image;
+  }
+
+  private async fulfillPhotoRequests(productId: string, productName: string) {
+    const pending = await this.prisma.photoRequest.findMany({
+      where: { productId, status: 'PENDING' },
+      include: { customer: { select: { userId: true } } },
+    });
+    if (pending.length === 0) return;
+
+    await this.prisma.photoRequest.updateMany({
+      where: { id: { in: pending.map((p) => p.id) } },
+      data: { status: 'FULFILLED', fulfilledAt: new Date() },
+    });
+    await this.prisma.notification.createMany({
+      data: pending.map((p) => ({
+        userId: p.customer.userId,
+        type: 'PHOTO_REQUEST_FULFILLED',
+        title: 'Photos added',
+        body: `Photos are now available for ${productName}.`,
+      })),
+    });
+  }
+
+  /**
+   * A customer asking for photos on a listing that doesn't have any yet
+   * (Section: photo requests). Idempotent -- a customer who already has a
+   * PENDING request for this product just gets that same one back rather
+   * than piling up duplicates.
+   */
+  async requestPhotos(userId: string, productId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!customer)
+      throw new NotFoundException('No customer account found for this user.');
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, name: true, images: { select: { id: true } } },
+    });
+    if (!product) throw new NotFoundException('Product not found.');
+    if (product.images.length > 0) {
+      throw new BadRequestException('This listing already has photos.');
+    }
+
+    const existing = await this.prisma.photoRequest.findFirst({
+      where: { productId, customerId: customer.id, status: 'PENDING' },
+    });
+    if (existing) return existing;
+
+    const request = await this.prisma.photoRequest.create({
+      data: { productId, customerId: customer.id },
+    });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+      select: { id: true },
+    });
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        type: 'PHOTO_REQUEST_SUBMITTED',
+        title: 'Photo request',
+        body: `A customer requested photos for ${product.name}.`,
+      })),
+    });
+
+    return request;
+  }
+
+  async getMyPhotoRequestStatus(userId: string, productId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!customer) return null;
+    return this.prisma.photoRequest.findFirst({
+      where: { productId, customerId: customer.id },
+      orderBy: { requestedAt: 'desc' },
+      select: { status: true },
+    });
+  }
+
+  listPhotoRequests(status?: string) {
+    return this.prisma.photoRequest.findMany({
+      where: status ? { status } : undefined,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            supplier: { select: { tradingName: true } },
+          },
+        },
+        customer: { select: { name: true } },
       },
+      orderBy: { requestedAt: 'desc' },
     });
   }
 
