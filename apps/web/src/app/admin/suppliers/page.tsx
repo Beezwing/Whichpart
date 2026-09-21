@@ -88,6 +88,9 @@ export default function AdminSuppliersPage() {
           <Link href="/admin/search-terms" className="text-[var(--accent)] hover:underline">
             Search terms →
           </Link>
+          <Link href="/admin/invoices" className="text-[var(--accent)] hover:underline">
+            Invoices →
+          </Link>
         </div>
       </div>
 

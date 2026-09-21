@@ -47,11 +47,11 @@ async function seedSubscriptionPlans() {
 
   await prisma.subscriptionPlan.createMany({
     data: [
-      { name: "Monthly", billingPeriod: "MONTHLY", priceUsd: 299, trialDays: 30 },
-      { name: "Annual", billingPeriod: "ANNUAL", priceUsd: 2990, trialDays: 30 },
+      { name: "Monthly", billingPeriod: "MONTHLY", price: 10000, currency: "JMD", commissionRate: 0.05, trialDays: 30 },
+      { name: "Annual", billingPeriod: "ANNUAL", price: 100000, currency: "JMD", commissionRate: 0.05, trialDays: 30 },
     ],
   });
-  console.log("Created default subscription plans (Monthly $299, Annual $2,990).");
+  console.log("Created default subscription plans (Monthly $10,000 JMD, Annual $100,000 JMD, 5% commission).");
 }
 
 const CATEGORY_TREE: Record<string, string[]> = {

@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Logger, Post } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoService } from '../common/crypto.service';
+import { CommissionService } from '../common/commission.service';
 import { DimePayService } from './dimepay.service';
 
 /**
@@ -22,6 +23,7 @@ export class DimePayWebhookController {
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly dimePay: DimePayService,
+    private readonly commission: CommissionService,
   ) {}
 
   @Post()
@@ -91,6 +93,7 @@ export class DimePayWebhookController {
         where: { id: payment.id },
         data: { status: 'PAID' },
       });
+      await this.commission.applyOnFirstPaid(order.id);
       this.logger.log(
         `Order ${order.orderNumber} confirmed PAID via DimePay webhook.`,
       );

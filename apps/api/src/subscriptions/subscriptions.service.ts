@@ -14,13 +14,13 @@ export class SubscriptionsService {
   listActivePlans() {
     return this.prisma.subscriptionPlan.findMany({
       where: { isActive: true },
-      orderBy: { priceUsd: 'asc' },
+      orderBy: { price: 'asc' },
     });
   }
 
   listAllPlans() {
     return this.prisma.subscriptionPlan.findMany({
-      orderBy: { priceUsd: 'asc' },
+      orderBy: { price: 'asc' },
     });
   }
 
@@ -37,7 +37,9 @@ export class SubscriptionsService {
     const updated = await this.prisma.subscriptionPlan.update({
       where: { id },
       data: {
-        priceUsd: input.priceUsd,
+        price: input.price,
+        currency: input.currency,
+        commissionRate: input.commissionRate,
         trialDays: input.trialDays,
         isActive: input.isActive,
       },
@@ -49,7 +51,9 @@ export class SubscriptionsService {
       resourceType: 'SubscriptionPlan',
       resourceId: id,
       metadata: {
-        priceUsd: input.priceUsd,
+        price: input.price,
+        currency: input.currency,
+        commissionRate: input.commissionRate,
         trialDays: input.trialDays,
         isActive: input.isActive,
       },

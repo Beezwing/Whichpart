@@ -7,6 +7,7 @@ import {
 import type { UpdateOrderStatusInput } from '@autoparts/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
+import { CommissionService } from '../common/commission.service';
 import { EmailService } from '../email/email.service';
 
 const ORDER_INCLUDE = {
@@ -30,6 +31,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly email: EmailService,
+    private readonly commission: CommissionService,
   ) {}
 
   private async requireCustomerId(userId: string): Promise<string> {
@@ -172,6 +174,13 @@ export class OrdersService {
       resourceId: orderId,
       metadata: { from: order.status, to: status },
     });
+
+    // Applied after the fetch above so the response actually reflects it,
+    // rather than the caller seeing stale nulls until their next refetch.
+    if (status === 'PAID') {
+      const applied = await this.commission.applyOnFirstPaid(orderId);
+      if (applied) Object.assign(updated, applied);
+    }
 
     // Fire-and-forget -- the status change is real regardless of whether
     // the email actually lands.

@@ -426,4 +426,12 @@ export class SuppliersService {
     const buffer = await this.storage.read(document.fileUrl);
     return { buffer, documentType: document.documentType };
   }
+
+  async getInvoices(userId: string) {
+    const supplierId = await this.requireSupplierId(userId);
+    return this.prisma.supplierInvoice.findMany({
+      where: { supplierId },
+      orderBy: { periodStart: 'desc' },
+    });
+  }
 }

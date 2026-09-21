@@ -70,7 +70,10 @@ export const paymentAccountSchema = z
 export type PaymentAccountInput = z.infer<typeof paymentAccountSchema>;
 
 export const adminUpdatePlanSchema = z.object({
-  priceUsd: z.number().positive(),
+  price: z.number().positive(),
+  currency: z.string().min(1).max(10).optional(),
+  // Fraction, not a percent -- 0.05 means 5%.
+  commissionRate: z.number().min(0).max(1).optional(),
   trialDays: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });

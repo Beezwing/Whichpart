@@ -184,4 +184,12 @@ export class SuppliersController {
   ) {
     return this.suppliersService.updatePaymentAccount(user.id, body);
   }
+
+  // ---------- Billing ----------
+
+  @Get('me/invoices')
+  @Auth()
+  getInvoices(@CurrentUser() user: AuthenticatedUser) {
+    return this.suppliersService.getInvoices(user.id);
+  }
 }

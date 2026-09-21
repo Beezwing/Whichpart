@@ -11,7 +11,9 @@ interface Plan {
   id: string;
   name: string;
   billingPeriod: string;
-  priceUsd: string;
+  price: string;
+  currency: string;
+  commissionRate: string;
   trialDays: number;
   isActive: boolean;
 }
@@ -69,7 +71,11 @@ export default function AdminSubscriptionPlansPage() {
 }
 
 function PlanRow({ plan, onSaved }: { plan: Plan; onSaved: () => Promise<void> }) {
-  const [priceUsd, setPriceUsd] = useState(plan.priceUsd);
+  const [price, setPrice] = useState(plan.price);
+  const [currency, setCurrency] = useState(plan.currency);
+  // Edited as a whole percent (e.g. "5") for a human, converted to the
+  // 0-1 fraction the API/schema expects (adminUpdatePlanSchema) on save.
+  const [commissionPercent, setCommissionPercent] = useState(String(Number(plan.commissionRate) * 100));
   const [trialDays, setTrialDays] = useState(String(plan.trialDays));
   const [isActive, setIsActive] = useState(plan.isActive);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +84,9 @@ function PlanRow({ plan, onSaved }: { plan: Plan; onSaved: () => Promise<void> }
   async function save() {
     setError(null);
     const parsed = adminUpdatePlanSchema.safeParse({
-      priceUsd: Number(priceUsd),
+      price: Number(price),
+      currency,
+      commissionRate: Number(commissionPercent) / 100,
       trialDays: Number(trialDays),
       isActive,
     });
@@ -110,9 +118,20 @@ function PlanRow({ plan, onSaved }: { plan: Plan; onSaved: () => Promise<void> }
           <Alert variant="error">{error}</Alert>
         </div>
       )}
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="Price (USD)">
-          <Input type="number" value={priceUsd} onChange={(e) => setPriceUsd(e.target.value)} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Field label="Price">
+          <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </Field>
+        <Field label="Currency">
+          <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={10} />
+        </Field>
+        <Field label="Commission (%)">
+          <Input
+            type="number"
+            step="0.1"
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(e.target.value)}
+          />
         </Field>
         <Field label="Trial days">
           <Input type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
@@ -122,6 +141,10 @@ function PlanRow({ plan, onSaved }: { plan: Plan; onSaved: () => Promise<void> }
           Active
         </label>
       </div>
+      <p className="mt-2 text-xs text-[var(--muted)]">
+        Commission is charged on top of the price above — a percentage of each paid order&apos;s subtotal, billed monthly
+        alongside the service fee (Suppliers → Invoices).
+      </p>
       <div className="mt-3">
         <Button variant="secondary" disabled={saving} onClick={() => void save()}>
           {saving ? "Saving…" : "Save"}
