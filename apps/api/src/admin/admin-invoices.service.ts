@@ -79,6 +79,8 @@ export class AdminInvoicesService {
         where: {
           supplierId: supplier.id,
           paidAt: { gte: periodStart, lt: periodEnd },
+          // A sale that was cancelled or refunded afterwards owes no commission.
+          status: { notIn: ['CANCELLED', 'REFUNDED'] },
         },
         select: { commissionAmount: true },
       });

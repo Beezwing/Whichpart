@@ -59,8 +59,8 @@ export class SearchController {
       lat: toNumber(lat),
       lng: toNumber(lng),
       sort: (sort as SearchProductsQuery['sort']) ?? 'relevance',
-      page: toNumber(page) ?? 1,
-      pageSize: Math.min(toNumber(pageSize) ?? 20, 50),
+      page: Math.max(1, Math.floor(toNumber(page) ?? 1)),
+      pageSize: Math.min(Math.max(1, Math.floor(toNumber(pageSize) ?? 20)), 50),
     };
     return this.search.searchProducts(query);
   }

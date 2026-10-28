@@ -150,16 +150,25 @@ export class OrdersService {
       );
     }
 
+    // Any fulfilment step past AWAITING_PAYMENT (processing, ready, out for
+    // delivery, delivered, completed) implies the supplier has been paid, so
+    // it must register as PAID and accrue commission exactly like picking
+    // "Paid" would -- otherwise skipping that dropdown value dodges the fee.
+    const implicitlyPaid =
+      order.paymentStatus !== 'PAID' &&
+      status !== 'PAID' &&
+      status !== 'CANCELLED';
+    const becomesPaid = status === 'PAID' || implicitlyPaid;
+
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status,
-        paymentStatus:
-          status === 'PAID'
-            ? 'PAID'
-            : status === 'CANCELLED'
-              ? 'CANCELLED'
-              : undefined,
+        paymentStatus: becomesPaid
+          ? 'PAID'
+          : status === 'CANCELLED'
+            ? 'CANCELLED'
+            : undefined,
       },
       include: {
         ...ORDER_INCLUDE,
@@ -177,7 +186,7 @@ export class OrdersService {
 
     // Applied after the fetch above so the response actually reflects it,
     // rather than the caller seeing stale nulls until their next refetch.
-    if (status === 'PAID') {
+    if (becomesPaid) {
       const applied = await this.commission.applyOnFirstPaid(orderId);
       if (applied) Object.assign(updated, applied);
     }

@@ -38,7 +38,8 @@ export class GarageController {
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(savedVehicleSchema)) body: SavedVehicleInput,
+    @Body(new ZodValidationPipe(savedVehicleSchema.partial()))
+    body: Partial<SavedVehicleInput>,
   ) {
     return this.garage.update(user.id, id, body);
   }

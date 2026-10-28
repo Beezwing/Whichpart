@@ -119,6 +119,13 @@ export class SuppliersService {
       (doc) => doc.id === documentId,
     );
     if (!document) throw new NotFoundException('Document not found.');
+    // Same lock as uploads: once submitted, the documents are the evidence
+    // the admin is reviewing and must not change underneath them.
+    if (!SUBMITTABLE_STATUSES.includes(verification.status)) {
+      throw new BadRequestException(
+        'Documents can only be removed while your application is in draft or needs more information.',
+      );
+    }
 
     await this.storage.delete(document.fileUrl);
     await this.prisma.supplierDocument.delete({ where: { id: documentId } });

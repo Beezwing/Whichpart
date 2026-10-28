@@ -38,7 +38,11 @@ export class GarageService {
     return vehicle;
   }
 
-  async update(userId: string, vehicleId: string, input: SavedVehicleInput) {
+  async update(
+    userId: string,
+    vehicleId: string,
+    input: Partial<SavedVehicleInput>,
+  ) {
     await this.requireOwnVehicle(userId, vehicleId);
     return this.prisma.savedVehicle.update({
       where: { id: vehicleId },

@@ -168,6 +168,12 @@ export class QuickBooksController {
         'That location does not belong to your account.',
       );
 
+    const existing = await this.prisma.supplierQuickBooksAccount.findUnique({
+      where: { supplierId },
+      select: { supplierId: true },
+    });
+    if (!existing)
+      throw new BadRequestException('Connect QuickBooks first.');
     const account = await this.prisma.supplierQuickBooksAccount.update({
       where: { supplierId },
       data: { primaryLocationId: locationId },
