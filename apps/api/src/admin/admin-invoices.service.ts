@@ -35,6 +35,9 @@ export class AdminInvoicesService {
     }
     const year = Number(match[1]);
     const monthIndex = Number(match[2]) - 1;
+    if (monthIndex < 0 || monthIndex > 11) {
+      throw new BadRequestException('month must be between 01 and 12.');
+    }
     const periodStart = new Date(Date.UTC(year, monthIndex, 1));
     const periodEnd = new Date(Date.UTC(year, monthIndex + 1, 1));
     if (periodEnd > new Date()) {

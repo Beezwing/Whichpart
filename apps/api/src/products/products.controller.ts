@@ -233,7 +233,24 @@ export class ProductImagesController {
   @Get(':id/file')
   async downloadImage(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.products.getImageFile(id);
-    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Type', sniffImageType(buffer));
+    // Image IDs are random and a replaced photo gets a new ID, so a given
+    // URL's bytes never change -- safe for browsers and the native app to cache.
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(buffer);
   }
+}
+
+/** Uploads are validated as JPEG/PNG/WEBP, so the magic bytes are enough. */
+function sniffImageType(buf: Buffer): string {
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg';
+  if (buf.length > 3 && buf.subarray(1, 4).toString('latin1') === 'PNG')
+    return 'image/png';
+  if (
+    buf.length > 12 &&
+    buf.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    buf.subarray(8, 12).toString('latin1') === 'WEBP'
+  )
+    return 'image/webp';
+  return 'application/octet-stream';
 }

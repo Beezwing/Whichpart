@@ -52,6 +52,8 @@ export class VehiclesService {
   }
 
   async deleteMake(adminUserId: string, id: string) {
+    if (!(await this.prisma.make.findUnique({ where: { id } })))
+      throw new NotFoundException('Make not found.');
     const modelCount = await this.prisma.model.count({ where: { makeId: id } });
     if (modelCount > 0)
       throw new BadRequestException('Remove its models first.');
@@ -89,6 +91,8 @@ export class VehiclesService {
   }
 
   async deleteModel(adminUserId: string, id: string) {
+    if (!(await this.prisma.model.findUnique({ where: { id } })))
+      throw new NotFoundException('Model not found.');
     const engineCount = await this.prisma.engine.count({
       where: { modelId: id },
     });
@@ -123,6 +127,8 @@ export class VehiclesService {
   }
 
   async deleteEngine(adminUserId: string, id: string) {
+    if (!(await this.prisma.engine.findUnique({ where: { id } })))
+      throw new NotFoundException('Engine not found.');
     await this.prisma.engine.delete({ where: { id } });
     await this.auditLog.record({
       actorUserId: adminUserId,

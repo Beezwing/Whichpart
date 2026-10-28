@@ -79,6 +79,24 @@ export class CategoriesService {
     if (input.parentId === id) {
       throw new BadRequestException('A category cannot be its own parent.');
     }
+    if (input.parentId) {
+      // Walk up from the proposed parent: reaching this category means the
+      // move would create a loop and drop both out of the tree.
+      let cursor: string | null = input.parentId;
+      while (cursor) {
+        if (cursor === id)
+          throw new BadRequestException(
+            "A category can't be moved under one of its own subcategories.",
+          );
+        const parent: { parentId: string | null } | null =
+          await this.prisma.category.findUnique({
+            where: { id: cursor },
+            select: { parentId: true },
+          });
+        if (!parent) throw new BadRequestException('Parent category not found.');
+        cursor = parent.parentId;
+      }
+    }
 
     const updated = await this.prisma.category.update({
       where: { id },
@@ -94,6 +112,8 @@ export class CategoriesService {
   }
 
   async remove(adminUserId: string, id: string) {
+    const existing = await this.prisma.category.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Category not found.');
     const [childCount, productCount] = await Promise.all([
       this.prisma.category.count({ where: { parentId: id } }),
       this.prisma.product.count({ where: { categoryId: id } }),

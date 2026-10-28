@@ -28,8 +28,8 @@ export class AdminSearchTermsController {
       : 'searchCount';
     return this.adminSearchTerms.list(
       safeSort,
-      Number(page) || 1,
-      Math.min(Number(pageSize) || 50, 100),
+      Math.max(1, Math.floor(Number(page)) || 1),
+      Math.min(Math.max(1, Math.floor(Number(pageSize)) || 50), 100),
     );
   }
 }

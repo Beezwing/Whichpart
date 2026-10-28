@@ -31,8 +31,8 @@ export class AdminSuppliersController {
   ) {
     return this.adminSuppliers.list(
       status,
-      Number(page) || 1,
-      Number(pageSize) || 20,
+      Math.max(1, Math.floor(Number(page)) || 1),
+      Math.min(Math.max(1, Math.floor(Number(pageSize)) || 20), 100),
     );
   }
 

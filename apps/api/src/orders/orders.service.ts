@@ -191,6 +191,15 @@ export class OrdersService {
       if (applied) Object.assign(updated, applied);
     }
 
+    await this.prisma.notification.create({
+      data: {
+        userId: order.customer.userId,
+        type: 'ORDER_STATUS',
+        title: 'Order update',
+        body: `${order.supplier.tradingName}: order ${order.orderNumber} is now ${status.replace(/_/g, ' ').toLowerCase()}.`,
+      },
+    });
+
     // Fire-and-forget -- the status change is real regardless of whether
     // the email actually lands.
     if (order.customer.user.email) {

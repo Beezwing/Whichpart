@@ -60,6 +60,11 @@ export class AdminSuppliersService {
   ) {}
 
   async list(status: string | undefined, page: number, pageSize: number) {
+    if (
+      status &&
+      !(Object.values(SupplierVerificationStatus) as string[]).includes(status)
+    )
+      throw new BadRequestException(`Unknown status "${status}".`);
     const where = status ? { verificationStatus: status as Status } : {};
     const [items, total] = await Promise.all([
       this.prisma.supplier.findMany({
