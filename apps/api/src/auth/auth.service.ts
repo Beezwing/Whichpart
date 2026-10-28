@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -18,8 +20,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../common/audit-log.service';
 import type { JwtPayload } from './jwt.strategy';
 
+// The global per-IP throttle can't be relied on for login: behind Railway's
+// proxy pool the tracker IP varies per request, so it never trips. Failed
+// logins are therefore also capped per account, whatever IP they come from.
+const MAX_FAILED_LOGINS = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_TRACKED_EMAILS = 20_000;
+
 @Injectable()
 export class AuthService {
+  private readonly failedLogins = new Map<
+    string,
+    { count: number; since: number }
+  >();
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -106,20 +119,59 @@ export class AuthService {
     return this.issueTokens(user.id, user.email, user.role);
   }
 
+  private loginKey(email: string) {
+    return email.trim().toLowerCase();
+  }
+
+  private assertLoginAllowed(key: string) {
+    const entry = this.failedLogins.get(key);
+    if (!entry) return;
+    if (Date.now() - entry.since > LOGIN_WINDOW_MS) {
+      this.failedLogins.delete(key);
+      return;
+    }
+    if (entry.count >= MAX_FAILED_LOGINS)
+      throw new HttpException(
+        'Too many failed login attempts. Try again in a few minutes.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+  }
+
+  private recordFailedLogin(key: string) {
+    const entry = this.failedLogins.get(key);
+    if (entry && Date.now() - entry.since <= LOGIN_WINDOW_MS) {
+      entry.count++;
+      return;
+    }
+    if (this.failedLogins.size >= MAX_TRACKED_EMAILS) {
+      const oldest: string | undefined = this.failedLogins.keys().next().value;
+      if (oldest !== undefined) this.failedLogins.delete(oldest);
+    }
+    this.failedLogins.set(key, { count: 1, since: Date.now() });
+  }
+
   async login(input: LoginInput) {
+    const key = this.loginKey(input.email);
+    this.assertLoginAllowed(key);
+
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
-    if (!user || !user.isActive)
+    if (!user || !user.isActive) {
+      this.recordFailedLogin(key);
       throw new UnauthorizedException('Invalid email or password.');
+    }
 
     const passwordMatches = await argon2.verify(
       user.passwordHash,
       input.password,
     );
-    if (!passwordMatches)
+    if (!passwordMatches) {
+      this.recordFailedLogin(key);
       throw new UnauthorizedException('Invalid email or password.');
+    }
 
+    this.failedLogins.delete(key);
     return this.issueTokens(user.id, user.email, user.role);
   }
 

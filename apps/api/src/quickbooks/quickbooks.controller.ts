@@ -172,8 +172,7 @@ export class QuickBooksController {
       where: { supplierId },
       select: { supplierId: true },
     });
-    if (!existing)
-      throw new BadRequestException('Connect QuickBooks first.');
+    if (!existing) throw new BadRequestException('Connect QuickBooks first.');
     const account = await this.prisma.supplierQuickBooksAccount.update({
       where: { supplierId },
       data: { primaryLocationId: locationId },

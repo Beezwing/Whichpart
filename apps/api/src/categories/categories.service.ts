@@ -93,7 +93,8 @@ export class CategoriesService {
             where: { id: cursor },
             select: { parentId: true },
           });
-        if (!parent) throw new BadRequestException('Parent category not found.');
+        if (!parent)
+          throw new BadRequestException('Parent category not found.');
         cursor = parent.parentId;
       }
     }

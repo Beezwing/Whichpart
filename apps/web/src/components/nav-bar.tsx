@@ -48,7 +48,7 @@ export function NavBar() {
 
   return (
     <header className="brand-header border-b border-[var(--border)]">
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 sm:py-6">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--gold)] sm:text-2xl"
@@ -62,7 +62,11 @@ export function NavBar() {
             horizontal-scroll bug this replaced. Nothing here is ever
             display:none, so the guided tour's getBoundingClientRect/
             scrollIntoView still finds every target on a narrow screen too. */}
-        <div className="relative min-w-0 flex-1">
+        {/* On a phone the links get their own row under the logo (a 360px
+            screen can't fit logo + Search/Cart/Log in/Sign up side by side,
+            which used to push "Sign up" off-screen); from sm up they sit
+            beside it as before. */}
+        <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
           <nav
             ref={navRef}
             className="flex min-w-0 items-center gap-3 overflow-x-auto text-sm [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1"
