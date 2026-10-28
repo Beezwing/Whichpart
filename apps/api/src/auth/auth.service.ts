@@ -144,8 +144,10 @@ export class AuthService {
       return;
     }
     if (this.failedLogins.size >= MAX_TRACKED_EMAILS) {
-      const oldest: string | undefined = this.failedLogins.keys().next().value;
-      if (oldest !== undefined) this.failedLogins.delete(oldest);
+      for (const oldest of this.failedLogins.keys()) {
+        this.failedLogins.delete(oldest);
+        break;
+      }
     }
     this.failedLogins.set(key, { count: 1, since: Date.now() });
   }
